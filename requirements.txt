@@ -1,0 +1,51 @@
+# API and Web
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+urllib3>=2.0.7
+
+# Database
+psycopg2-binary>=2.9.9
+SQLAlchemy>=2.0.23
+
+# Data Processing
+pandas>=2.1.3
+numpy>=1.24.3
+
+# Configuration and Environment
+python-dotenv>=1.0.0
+PyYAML>=6.0.1
+
+# Scheduling and Time Management
+schedule>=1.2.1
+APScheduler>=3.10.4
+
+# GeoIP Location
+geoip2>=4.7.0
+maxminddb>=2.4.0
+
+# Logging and Monitoring
+logging>=0.4.9.6
+
+# Date and Time handling
+pytz>=2023.3.post1
+
+## Warnings and System
+#warnings>=0.1.0
+
+# SSL and Security
+certifi>=2023.7.22
+cryptography>=41.0.5
+
+# Development and Testing
+pytest>=7.4.3
+pytest-cov>=4.1.0
+black>=23.11.0
+flake8>=6.1.0
+mypy>=1.7.0
+
+fastapi>=0.68.0
+uvicorn>=0.15.0
+
+
+#Email Validator
+pydantic[email]>=2.0.0
