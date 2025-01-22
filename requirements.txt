@@ -49,3 +49,10 @@ uvicorn>=0.15.0
 
 #Email Validator
 pydantic[email]>=2.0.0
+
+
+
+#Auth
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart

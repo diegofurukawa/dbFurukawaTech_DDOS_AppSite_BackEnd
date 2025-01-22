@@ -313,6 +313,23 @@ class DataBaseWS:
             self.connection.rollback()
             raise
 
+    def execute_update(self, query: str, params: Optional[Tuple] = None) -> None:
+        """
+        Executa uma query de UPDATE/INSERT/DELETE sem tentar fazer fetch do resultado.
+        """
+        if not self.connection:
+            raise Exception("Database connection is not open")
+
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute(query, params)
+                self.connection.commit()
+                self.logger.info("Update query executed successfully")
+        except Exception as e:
+            self.logger.error(f"Error executing update query: {e}")
+            self.connection.rollback()
+            raise
+
     @staticmethod
     def _prepare_managed_object_data(mo_data: Dict[str, Any]) -> None:
         """

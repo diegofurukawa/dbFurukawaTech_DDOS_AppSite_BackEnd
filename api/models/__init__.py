@@ -6,14 +6,16 @@ Exports all route modules for easy importing.
 
 from .alert_model import Alert, AlertStats, AlertTop, AlertTrafficData, PaginatedResponse, PaginationParams
 from .mitigation_model import MitigationBase, MitigationTrafficPoint, MitigationStats
-from .user_model import UserBase, UserCreate, UserResponse, UserAccessRequest
+from .user_model import UserBase, UserCreate, UserLogin, Token, TokenData, UserResponse
 
 __all__ = [
     # Alerts
     'UserBase'
     ,'UserCreate'
     ,'UserResponse' 
-    ,'UserAccessRequest'
+    ,'UserLogin'
+    ,'Token'
+    ,'TokenData'
 
     # Alerts
     'Alert'
