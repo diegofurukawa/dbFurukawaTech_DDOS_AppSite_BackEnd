@@ -64,3 +64,14 @@ class UserResponse(UserBase):
 
     class Config:
         from_attributes = True
+
+class UserUpdate(BaseModel):
+    """Modelo para atualização de usuário"""
+    name: Optional[str] = None
+    company: Optional[str] = None
+    role: Optional[str] = None
+    password: Optional[constr(min_length=8)] = None
+    is_active: Optional[bool] = None
+
+    class Config:
+        from_attributes = True

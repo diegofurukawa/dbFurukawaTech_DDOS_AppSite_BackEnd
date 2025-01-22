@@ -11,6 +11,7 @@ from utils.auth import (
 from ..models.user_model import (
     UserBase, UserCreate, UserResponse, UserLogin, Token
 )
+from ..models.user_model import UserUpdate
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 logger = create_logger("user_routes")
@@ -156,6 +157,99 @@ class UserAPI:
         except Exception as e:
             self.logger.error(f"Error during login: {str(e)}")
             raise HTTPException(status_code=500, detail="Login failed")
+        
+
+
+    async def update_user(self, user_id: int, user_data: UserUpdate, current_user: dict) -> UserResponse:
+        """
+        Atualiza os dados de um usuário.
+        Apenas administradores podem atualizar outros usuários.
+        Usuários normais só podem atualizar seus próprios dados.
+        """
+        try:
+            # Verifica permissões
+            if current_user['role'] != 'admin' and current_user['id'] != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to update this user"
+                )
+
+            # Prepara os campos para atualização
+            update_fields = []
+            values = []
+            
+            if user_data.name is not None:
+                update_fields.append("name = %s")
+                values.append(user_data.name)
+                
+            if user_data.company is not None:
+                update_fields.append("company = %s")
+                values.append(user_data.company)
+                
+            if user_data.role is not None:
+                # Apenas admin pode mudar roles
+                if current_user['role'] != 'admin':
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Only administrators can change roles"
+                    )
+                update_fields.append("role = %s")
+                values.append(user_data.role)
+                
+            if user_data.password is not None:
+                update_fields.append("password_hash = %s")
+                values.append(get_password_hash(user_data.password))
+                
+            if user_data.is_active is not None:
+                # Apenas admin pode ativar/desativar usuários
+                if current_user['role'] != 'admin':
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Only administrators can change user status"
+                    )
+                update_fields.append("is_active = %s")
+                values.append(user_data.is_active)
+
+            if not update_fields:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No fields to update"
+                )
+
+            # Adiciona o ID do usuário aos valores
+            values.append(user_id)
+
+            # Constrói e executa a query
+            query = f"""
+                UPDATE users 
+                SET {', '.join(update_fields)}
+                WHERE id = %s
+                RETURNING id, email, name, company, role, is_active, created_at, last_login
+            """
+            
+            result = self.db.execute_query(query, tuple(values))
+            
+            if not result:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found"
+                )
+                
+            return UserResponse(**dict(zip(
+                ['id', 'email', 'name', 'company', 'role', 'is_active', 'created_at', 'last_login'],
+                result[0]
+            )))
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error updating user: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update user"
+            )
+
+#
 
 # Initialize API handler
 user_api = UserAPI()
@@ -187,3 +281,22 @@ async def refresh_token(current_user: dict = Depends(get_current_user)):
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     return {"access_token": new_access_token, "token_type": "bearer"}
+
+
+# Adicionar nova rota
+@router.patch("/{user_id}", response_model=UserResponse)
+async def update_user(
+    user_id: int,
+    user_data: UserUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Atualiza os dados de um usuário.
+    
+    - Usuários normais só podem atualizar seus próprios dados
+    - Apenas administradores podem:
+      - Atualizar dados de outros usuários
+      - Alterar roles de usuários
+      - Ativar/desativar usuários
+    """
+    return await user_api.update_user(user_id, user_data, current_user)
