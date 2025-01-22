@@ -19,8 +19,12 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://192.168.68.111:3000"],  # Frontend origin
-    # allow_origins=["http://localhost:3000"],  # Frontend origin
+    allow_origins=[
+        "http://dfurukawatech.ddns.net:3152",
+        "http://179.125.208.33:3152",
+        "http://192.168.68.111:3000",
+        "http://localhost:3000"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
