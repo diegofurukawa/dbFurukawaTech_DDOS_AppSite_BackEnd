@@ -26,9 +26,11 @@ class MitigationAPI:
             with self.db.connection.cursor() as cursor:
                 # Conta mitigações ativas
                 cursor.execute("""
-                    SELECT COUNT(*) FROM mitigations m
-                    inner join alerts a on a.alert_id = m.alert_id 
-                    WHERE m.ongoing = true
+                    SELECT 
+                    COUNT(*) 
+                    from vw_alerts  a
+                    inner join mitigations c on c.alert_id = a.alert_id
+                    WHERE 1=1
                 """)
                 active = cursor.fetchone()[0]
 
@@ -38,17 +40,23 @@ class MitigationAPI:
 
                 # Tempo médio de resposta (em segundos)
                 cursor.execute("""
-                    SELECT AVG(EXTRACT(EPOCH FROM (stop_time - start_time))) 
-                    FROM mitigations 
-                    WHERE stop_time IS NOT NULL
+                    SELECT 
+                        AVG(EXTRACT(EPOCH FROM (a.stop_time - a.start_time))) 
+                    from vw_alerts  a
+                    inner join mitigations c on c.alert_id = a.alert_id
+                    WHERE a.stop_time IS NOT NULL
                 """)
                 avg_time = cursor.fetchone()[0] or 0
 
                 # Taxa de sucesso (mitigações completadas com sucesso)
                 cursor.execute("""
-                    SELECT COUNT(*) 
-                    FROM mitigations 
-                    WHERE stop_time IS NOT NULL AND degraded = 'false'
+                        SELECT 
+                            COUNT(*) 
+                        from vw_alerts  a
+                        inner join mitigations c on c.alert_id = a.alert_id
+                        WHERE 1=1
+                        and a.stop_time IS NOT NULL
+                        AND degraded = 'false'
                 """)
                 success = cursor.fetchone()[0]
                 success_rate = (success / total * 100) if total > 0 else 100
