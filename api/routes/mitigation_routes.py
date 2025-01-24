@@ -34,8 +34,14 @@ class MitigationAPI:
                 """)
                 active = cursor.fetchone()[0]
 
-                # Total de mitigações
-                cursor.execute("SELECT COUNT(*) FROM mitigations")
+                # Total de mitigações                
+                cursor.execute("""
+                                SELECT 
+                                    COUNT(*) 
+                                from vw_alerts  a
+                                inner join mitigations c on c.alert_id = a.alert_id
+                                WHERE 1=1
+                            """)
                 total = cursor.fetchone()[0]
 
                 # Tempo médio de resposta (em segundos)
