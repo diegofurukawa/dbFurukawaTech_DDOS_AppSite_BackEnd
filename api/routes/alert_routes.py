@@ -133,24 +133,27 @@ class AlertAPI:
             # Query principal com LIMIT e OFFSET
             query = """
                 SELECT 
-                    alert_id::text as id,
-                    COALESCE(importance, 'Low') as severity,
-                    COALESCE(mo_name, 'Unknown') as client,
-                    COALESCE(mo_misusesig, 'Unknown') as type,
-                    to_char(start_time, 'HH24:MI:SS') as start_time,
-                    COALESCE(host_address, 'Unknown') as host_address,
-                    COALESCE(mps, 0) as mbps,
-                    COALESCE(pps, 0) as kpps
-                FROM vw_alerts 
-                WHERE start_time >= CURRENT_DATE
+                    a.alert_id::text as id,
+                    COALESCE(a.importance, 'Low') as severity,
+                    COALESCE(a.mo_name, 'Unknown') as client,
+                    COALESCE(a.mo_misusesig, 'Unknown') as type,
+                    to_char(a.start_time, 'HH24:MI:SS') as start_time,
+                    COALESCE(a.host_address, 'Unknown') as host_address,
+                    COALESCE(a.mps, 0) as mbps,
+                    COALESCE(a.pps, 0) as kpps,
+                        m.mitigation_id
+                FROM vw_alerts a
+                left join mitigations m on m.alert_id = a.alert_id
+                WHERE a.start_time >= CURRENT_DATE
                 ORDER BY 
+                    COALESCE(m.mitigation_id, '') desc,
                     CASE 
-                        WHEN importance = 'high' THEN 1
-                        WHEN importance = 'medium' THEN 2
-                        WHEN importance = 'low' THEN 3
+                        WHEN a.importance = 'high' THEN 1
+                        WHEN a.importance = 'medium' THEN 2
+                        WHEN a.importance = 'low' THEN 3
                         ELSE 4
                     END,
-                    start_time DESC
+                    a.start_time DESC
                 LIMIT %s OFFSET %s
             """
             
@@ -158,7 +161,7 @@ class AlertAPI:
             
             top_alerts = []
             columns = ['id', 'severity', 'client', 'type', 'start_time', 
-                      'host_address', 'mbps', 'kpps']
+                      'host_address', 'mbps', 'kpps', 'mitigation_id']
             
             for row in result:
                 data = dict(zip(columns, row))
@@ -170,7 +173,8 @@ class AlertAPI:
                     'start_time': str(data['start_time']),
                     'host_address': str(data['host_address']),
                     'mbps': float(data['mbps']),
-                    'kpps': float(data['kpps'])
+                    'kpps': float(data['kpps']),
+                    'mitigation_id': str(data['mitigation_id'])
                 }
                 top_alerts.append(AlertTop(**processed_data))
             
