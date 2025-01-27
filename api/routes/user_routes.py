@@ -9,9 +9,8 @@ from utils.auth import (
     create_refresh_token, get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES
 )
 from ..models.user_model import (
-    UserBase, UserCreate, UserResponse, UserLogin, Token
+    UserBase, UserCreate, UserResponse, UserLogin, Token, UserUpdate
 )
-from ..models.user_model import UserUpdate
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 logger = create_logger("user_routes")
@@ -88,7 +87,7 @@ class UserAPI:
                 except IndexError:
                     user[column] = None
                     
-            self.logger.info(f"User data mapped: {user}")  # Log para debug
+            self.logger.info(f"User data mapped: {user}")
 
             self.logger.info(f"Verifying password for user: {user['email']}")
             if not user.get('password_hash'):
@@ -126,13 +125,14 @@ class UserAPI:
             refresh_token = create_refresh_token(data={"sub": user['email']})
 
             try:
-                # Update last login
+                # Update last login usando execute_query para o UPDATE
                 update_query = """
                     UPDATE users 
                     SET last_login = %s, refresh_token = %s 
                     WHERE id = %s
+                    RETURNING id
                 """
-                self.db.execute_update(
+                self.db.execute_query(
                     update_query,
                     (datetime.now(), refresh_token, user['id'])
                 )
@@ -157,8 +157,6 @@ class UserAPI:
         except Exception as e:
             self.logger.error(f"Error during login: {str(e)}")
             raise HTTPException(status_code=500, detail="Login failed")
-        
-
 
     async def update_user(self, user_id: int, user_data: UserUpdate, current_user: dict) -> UserResponse:
         """
@@ -249,8 +247,6 @@ class UserAPI:
                 detail="Failed to update user"
             )
 
-#
-
 # Initialize API handler
 user_api = UserAPI()
 
@@ -282,8 +278,6 @@ async def refresh_token(current_user: dict = Depends(get_current_user)):
     )
     return {"access_token": new_access_token, "token_type": "bearer"}
 
-
-# Adicionar nova rota
 @router.patch("/{user_id}", response_model=UserResponse)
 async def update_user(
     user_id: int,
