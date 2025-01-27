@@ -139,10 +139,11 @@ class MitigationAPI:
         try:
             with self.db.connection.cursor() as cursor:
                 query = """
-                    SELECT m.*, a.host_address, a.max_impact_bps, a.max_impact_pps
+                    SELECT m.*, a.host_address, a.mps, a.pps
                     FROM mitigations m
-                    INNER JOIN alerts a ON m.alert_id = a.alert_id
-                    ORDER BY m.start_time DESC
+                    INNER JOIN vw_alerts a ON m.alert_id = a.alert_id
+                    ORDER BY m.mitigation_id DESC
+                    limit 1
                 """
                 self.logger.debug(f"Executando query: {query}")
                 cursor.execute(query)
