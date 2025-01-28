@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, Query
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import datetime, timedelta
 from typing import List
@@ -11,6 +11,7 @@ from utils.auth import (
 from ..models.user_model import (
     UserBase, UserCreate, UserResponse, UserLogin, Token, UserUpdate
 )
+from ..models.alert_model import PaginatedResponse, PaginationParams
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 logger = create_logger("user_routes")
@@ -247,6 +248,63 @@ class UserAPI:
                 detail="Failed to update user"
             )
 
+    async def list_users(self, page: int, page_size: int, current_user: dict) -> PaginatedResponse[UserResponse]:
+        """
+        Lista usuários com paginação.
+        Apenas administradores podem ver todos os usuários.
+        Usuários normais só podem ver seus próprios dados.
+        """
+        try:
+            params = PaginationParams(page=page, page_size=page_size)
+            
+            # Define a base da query dependendo do role do usuário
+            if current_user['role'] == 'admin':
+                where_clause = ""
+                query_params = ()
+            else:
+                where_clause = "WHERE id = %s"
+                query_params = (current_user['id'],)
+            
+            # Query para contar o total de registros
+            count_query = f"SELECT COUNT(*) FROM users {where_clause}"
+            count_result = self.db.execute_query(count_query, query_params)
+            total_records = count_result[0][0] if count_result else 0
+            
+            # Query principal com paginação
+            query = f"""
+                SELECT id, email, name, company, role, is_active, created_at, last_login
+                FROM users
+                {where_clause}
+                ORDER BY name
+                LIMIT %s OFFSET %s
+            """
+            
+            # Adiciona os parâmetros de paginação
+            all_params = query_params + (params.page_size, params.offset)
+            result = self.db.execute_query(query, all_params)
+            
+            # Processa os resultados
+            users = []
+            columns = ['id', 'email', 'name', 'company', 'role', 'is_active', 
+                      'created_at', 'last_login']
+            
+            for row in result:
+                user_dict = dict(zip(columns, row))
+                users.append(UserResponse(**user_dict))
+            
+            return PaginatedResponse.create(
+                items=users,
+                total=total_records,
+                params=params
+            )
+            
+        except Exception as e:
+            self.logger.error(f"Error listing users: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to list users"
+            )
+
 # Initialize API handler
 user_api = UserAPI()
 
@@ -277,6 +335,19 @@ async def refresh_token(current_user: dict = Depends(get_current_user)):
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     return {"access_token": new_access_token, "token_type": "bearer"}
+
+@router.get("", response_model=PaginatedResponse[UserResponse])
+async def list_users(
+    page: int = Query(1, ge=1, description="Número da página"),
+    page_size: int = Query(10, ge=1, le=100, description="Itens por página"),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Lista usuários com paginação.
+    Apenas administradores podem ver todos os usuários.
+    Usuários normais só podem ver seus próprios dados.
+    """
+    return await user_api.list_users(page, page_size, current_user)
 
 @router.patch("/{user_id}", response_model=UserResponse)
 async def update_user(
