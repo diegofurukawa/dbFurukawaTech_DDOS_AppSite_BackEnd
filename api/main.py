@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # from .bkp import traffic_routes
-from .routes import alert_routes, mitigation_routes, user_routes
+from .routes import alert_routes, mitigation_routes, user_routes, customer_routes
 
 app = FastAPI(
     title="DDoS Protection API",
@@ -24,6 +24,8 @@ app.add_middleware(
         "http://179.125.208.33:3152",
         "http://192.168.68.111:3000",
         "http://localhost:3000"
+        "http://192.168.68.111:3001",
+        "http://localhost:3001"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -34,6 +36,7 @@ app.add_middleware(
 app.include_router(alert_routes.router)
 app.include_router(mitigation_routes.router)
 app.include_router(user_routes.router)
+app.include_router(customer_routes.router)
 
 
 # Health check endpoint

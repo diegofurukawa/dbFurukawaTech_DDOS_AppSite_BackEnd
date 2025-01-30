@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Query
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Optional
 from data.database import DatabaseConnection
 from utils.log import create_logger
 from utils.auth import (
@@ -22,11 +22,52 @@ class UserAPI:
         self.db = DatabaseConnection()
         self.db.connect()
 
+    async def get_user_by_id(self, idUser: int, current_user: dict) -> UserResponse:
+        """
+        Obtém um usuário específico por ID.
+        Apenas administradores podem ver outros usuários.
+        Usuários normais só podem ver seus próprios dados.
+        """
+        try:
+            # Verifica permissões
+            if current_user['role'] != 'admin' and current_user['idUser'] != idUser:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to view this user"
+                )
+
+            query = """
+                SELECT idUser, email, nameUser, company, role, active, 
+                       createdAt, updatedAt, lastLogin
+                FROM users
+                WHERE idUser = %s
+            """
+            
+            result = self.db.execute_query(query, (idUser,))
+            
+            if not result:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found"
+                )
+                
+            return UserResponse(**dict(zip(
+                ['idUser', 'email', 'nameUser', 'company', 'role', 'active', 
+                 'createdAt', 'updatedAt', 'lastLogin'],
+                result[0]
+            )))
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error fetching user: {str(e)}")
+            raise HTTPException(status_code=500, detail="Failed to fetch user")
+
     async def create_user(self, user: UserCreate) -> UserResponse:
         try:
             # Check if user exists
             result = self.db.execute_query(
-                "SELECT id FROM users WHERE email = %s",
+                "SELECT idUser FROM users WHERE email = %s",
                 (user.email,)
             )
             if result:
@@ -38,17 +79,17 @@ class UserAPI:
             # Create new user
             hashed_password = get_password_hash(user.password)
             query = """
-                INSERT INTO users (email, name, password_hash, company, role)
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING id, email, name, company, role, is_active, created_at
+                INSERT INTO users (email, nameUser, password_hash, company, role, createdAt)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING idUser, email, nameUser, company, role, active, createdAt
             """
             result = self.db.execute_query(
                 query,
-                (user.email, user.name, hashed_password, user.company, user.role)
+                (user.email, user.nameUser, hashed_password, user.company, user.role, datetime.now())
             )
             
             return UserResponse(**dict(zip(
-                ['id', 'email', 'name', 'company', 'role', 'is_active', 'created_at'],
+                ['idUser', 'email', 'nameUser', 'company', 'role', 'active', 'createdAt'],
                 result[0]
             )))
             
@@ -56,13 +97,96 @@ class UserAPI:
             self.logger.error(f"Error creating user: {str(e)}")
             raise HTTPException(status_code=500, detail="Failed to create user")
 
+    async def update_user(self, idUser: int, user_data: UserUpdate, current_user: dict) -> UserResponse:
+        try:
+            # Verifica permissões
+            if current_user['role'] != 'admin' and current_user['idUser'] != idUser:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to update this user"
+                )
+
+            update_fields = []
+            values = []
+            
+            if user_data.nameUser is not None:
+                update_fields.append("nameUser = %s")
+                values.append(user_data.nameUser)
+                
+            if user_data.company is not None:
+                update_fields.append("company = %s")
+                values.append(user_data.company)
+                
+            if user_data.role is not None:
+                if current_user['role'] != 'admin':
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Only administrators can change roles"
+                    )
+                update_fields.append("role = %s")
+                values.append(user_data.role)
+                
+            if user_data.password is not None:
+                update_fields.append("password_hash = %s")
+                values.append(get_password_hash(user_data.password))
+                
+            if user_data.active is not None:
+                if current_user['role'] != 'admin':
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Only administrators can change user status"
+                    )
+                update_fields.append("active = %s")
+                values.append(user_data.active)
+
+            if not update_fields:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No fields to update"
+                )
+
+            # Adiciona campos de atualização
+            update_fields.append("updatedAt = %s")
+            values.append(datetime.now())
+            values.append(idUser)  # for WHERE clause
+
+            query = f"""
+                UPDATE users 
+                SET {', '.join(update_fields)}
+                WHERE idUser = %s
+                RETURNING idUser, email, nameUser, company, role, active, createdAt, updatedAt, lastLogin
+            """
+            
+            result = self.db.execute_query(query, tuple(values))
+            
+            if not result:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found"
+                )
+                
+            return UserResponse(**dict(zip(
+                ['idUser', 'email', 'nameUser', 'company', 'role', 'active', 
+                 'createdAt', 'updatedAt', 'lastLogin'],
+                result[0]
+            )))
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error updating user: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update user"
+            )
+
     async def login(self, form_data: OAuth2PasswordRequestForm) -> Token:
         try:
             # Find user
             self.logger.info(f"Attempting to find user with email: {form_data.username}")
             query = """
-                SELECT id, email, name, password_hash, company, role,
-                       is_active, created_at, last_login, refresh_token
+                SELECT idUser, email, nameUser, password_hash, company, role,
+                       active, createdAt, lastLogin, refresh_token
                 FROM users 
                 WHERE email = %s
             """
@@ -77,8 +201,8 @@ class UserAPI:
                 )
 
             # Get column names from the query result
-            columns = ['id', 'email', 'name', 'password_hash', 'company', 'role',
-                      'is_active', 'created_at', 'last_login', 'refresh_token']
+            columns = ['idUser', 'email', 'nameUser', 'password_hash', 'company', 'role',
+                      'active', 'createdAt', 'lastLogin', 'refresh_token']
             
             # Create user dictionary making sure we have all required fields
             user = {}
@@ -129,13 +253,13 @@ class UserAPI:
                 # Update last login usando execute_query para o UPDATE
                 update_query = """
                     UPDATE users 
-                    SET last_login = %s, refresh_token = %s 
-                    WHERE id = %s
-                    RETURNING id
+                    SET lastLogin = %s, refresh_token = %s 
+                    WHERE idUser = %s
+                    RETURNING idUser
                 """
                 self.db.execute_query(
                     update_query,
-                    (datetime.now(), refresh_token, user['id'])
+                    (datetime.now(), refresh_token, user['idUser'])
                 )
                 
                 return Token(
@@ -159,95 +283,6 @@ class UserAPI:
             self.logger.error(f"Error during login: {str(e)}")
             raise HTTPException(status_code=500, detail="Login failed")
 
-    async def update_user(self, user_id: int, user_data: UserUpdate, current_user: dict) -> UserResponse:
-        """
-        Atualiza os dados de um usuário.
-        Apenas administradores podem atualizar outros usuários.
-        Usuários normais só podem atualizar seus próprios dados.
-        """
-        try:
-            # Verifica permissões
-            if current_user['role'] != 'admin' and current_user['id'] != user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Not authorized to update this user"
-                )
-
-            # Prepara os campos para atualização
-            update_fields = []
-            values = []
-            
-            if user_data.name is not None:
-                update_fields.append("name = %s")
-                values.append(user_data.name)
-                
-            if user_data.company is not None:
-                update_fields.append("company = %s")
-                values.append(user_data.company)
-                
-            if user_data.role is not None:
-                # Apenas admin pode mudar roles
-                if current_user['role'] != 'admin':
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Only administrators can change roles"
-                    )
-                update_fields.append("role = %s")
-                values.append(user_data.role)
-                
-            if user_data.password is not None:
-                update_fields.append("password_hash = %s")
-                values.append(get_password_hash(user_data.password))
-                
-            if user_data.is_active is not None:
-                # Apenas admin pode ativar/desativar usuários
-                if current_user['role'] != 'admin':
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Only administrators can change user status"
-                    )
-                update_fields.append("is_active = %s")
-                values.append(user_data.is_active)
-
-            if not update_fields:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="No fields to update"
-                )
-
-            # Adiciona o ID do usuário aos valores
-            values.append(user_id)
-
-            # Constrói e executa a query
-            query = f"""
-                UPDATE users 
-                SET {', '.join(update_fields)}
-                WHERE id = %s
-                RETURNING id, email, name, company, role, is_active, created_at, last_login
-            """
-            
-            result = self.db.execute_query(query, tuple(values))
-            
-            if not result:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="User not found"
-                )
-                
-            return UserResponse(**dict(zip(
-                ['id', 'email', 'name', 'company', 'role', 'is_active', 'created_at', 'last_login'],
-                result[0]
-            )))
-            
-        except HTTPException:
-            raise
-        except Exception as e:
-            self.logger.error(f"Error updating user: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update user"
-            )
-
     async def list_users(self, page: int, page_size: int, current_user: dict) -> PaginatedResponse[UserResponse]:
         """
         Lista usuários com paginação.
@@ -262,8 +297,8 @@ class UserAPI:
                 where_clause = ""
                 query_params = ()
             else:
-                where_clause = "WHERE id = %s"
-                query_params = (current_user['id'],)
+                where_clause = "WHERE idUser = %s"
+                query_params = (current_user['idUser'],)
             
             # Query para contar o total de registros
             count_query = f"SELECT COUNT(*) FROM users {where_clause}"
@@ -272,10 +307,10 @@ class UserAPI:
             
             # Query principal com paginação
             query = f"""
-                SELECT id, email, name, company, role, is_active, created_at, last_login
+                SELECT idUser, email, nameUser, company, role, active, createdAt, lastLogin
                 FROM users
                 {where_clause}
-                ORDER BY name
+                ORDER BY nameUser
                 LIMIT %s OFFSET %s
             """
             
@@ -285,8 +320,8 @@ class UserAPI:
             
             # Processa os resultados
             users = []
-            columns = ['id', 'email', 'name', 'company', 'role', 'is_active', 
-                      'created_at', 'last_login']
+            columns = ['idUser', 'email', 'nameUser', 'company', 'role', 'active', 
+                      'createdAt', 'lastLogin']
             
             for row in result:
                 user_dict = dict(zip(columns, row))
@@ -309,9 +344,14 @@ class UserAPI:
 user_api = UserAPI()
 
 # Route definitions
-@router.post("/register", response_model=UserResponse)
-async def register_user(user: UserCreate):
-    return await user_api.create_user(user)
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_info(current_user: dict = Depends(get_current_user)):
+    """Get info about the currently logged in user"""
+    try:
+        user = await user_api.get_user_by_id(current_user['idUser'], current_user)
+        return user
+    except HTTPException:
+        return UserResponse(**current_user)
 
 @router.post("/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
@@ -324,10 +364,6 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
             detail=f"Login error: {str(e)}"
         )
 
-@router.get("/me", response_model=UserResponse)
-async def get_current_user_info(current_user: dict = Depends(get_current_user)):
-    return UserResponse(**current_user)
-
 @router.post("/refresh")
 async def refresh_token(current_user: dict = Depends(get_current_user)):
     new_access_token = create_access_token(
@@ -335,6 +371,38 @@ async def refresh_token(current_user: dict = Depends(get_current_user)):
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     return {"access_token": new_access_token, "token_type": "bearer"}
+
+@router.get("/{idUser}", response_model=UserResponse)
+async def get_user(
+    idUser: int,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get a specific user by ID.
+    Only administrators can view other users.
+    Regular users can only view their own data.
+    """
+    return await user_api.get_user_by_id(idUser, current_user)
+
+@router.post("/register", response_model=UserResponse)
+async def register_user(user: UserCreate):
+    return await user_api.create_user(user)
+
+@router.patch("/{idUser}", response_model=UserResponse)
+async def update_user(
+    idUser: int,
+    user_data: UserUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Update user data.
+    Regular users can only update their own data.
+    Only administrators can:
+    - Update other users' data
+    - Change user roles
+    - Activate/deactivate users
+    """
+    return await user_api.update_user(idUser, user_data, current_user)
 
 @router.get("", response_model=PaginatedResponse[UserResponse])
 async def list_users(
@@ -348,20 +416,3 @@ async def list_users(
     Usuários normais só podem ver seus próprios dados.
     """
     return await user_api.list_users(page, page_size, current_user)
-
-@router.patch("/{user_id}", response_model=UserResponse)
-async def update_user(
-    user_id: int,
-    user_data: UserUpdate,
-    current_user: dict = Depends(get_current_user)
-):
-    """
-    Atualiza os dados de um usuário.
-    
-    - Usuários normais só podem atualizar seus próprios dados
-    - Apenas administradores podem:
-      - Atualizar dados de outros usuários
-      - Alterar roles de usuários
-      - Ativar/desativar usuários
-    """
-    return await user_api.update_user(user_id, user_data, current_user)

@@ -121,7 +121,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         # Busca o usuário no banco de dados
         with DatabaseConnection() as db:
             result = db.execute_query(
-                "SELECT * FROM users WHERE email = %s AND is_active = true",
+                "SELECT * FROM users WHERE email = %s AND active = true",
                 (email,)
             )
             if not result:
@@ -130,8 +130,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
                 
             # Mapeia os resultados da query para um dicionário
             user_data = dict(zip(
-                ['id', 'email', 'name', 'password_hash', 'company', 'role', 
-                 'is_active', 'created_at', 'last_login'],
+                ['idUser', 'email', 'name', 'password_hash', 'company', 'role', 
+                 'active', 'createdAt', 'last_login'],
                 result[0]
             ))
             logger.info(f"User authenticated successfully: {email}")

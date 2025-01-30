@@ -1,5 +1,8 @@
+--DROP TABLE if exists public.alerts CASCADE;
 --DROP TABLE if exists public.mitigations CASCADE;
+--DROP TABLE if exists public.access_requests CASCADE;
 --DROP TABLE if exists public.managedobjects CASCADE;
+--DROP TABLE if exists public.users CASCADE;
 
 CREATE TABLE IF NOT EXISTS public.alerts (
 	alert_id varchar(255) NOT NULL,
@@ -246,40 +249,41 @@ CREATE TABLE IF NOT EXISTS public.managedobjects (
 	CONSTRAINT managedobjects_pkey PRIMARY KEY (id)
 );
 
-CREATE TABLE IF NOT EXISTS public.users (
-	id serial4 NOT NULL,
-	email varchar(255) NOT NULL,
-	"name" varchar(255) NOT NULL,
-	password_hash varchar(255) NOT NULL,
-	company varchar(255) NULL,
-	"role" varchar(50) NULL,
-	is_active bool DEFAULT true NULL,
-	created_at timestamptz DEFAULT CURRENT_TIMESTAMP NULL,
-	last_login timestamptz NULL,
-	refresh_token varchar(255) NULL,
+CREATE TABLE IF NOT EXISTS public.users(
+  idUser serial4 NOT NULL,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  nameUser VARCHAR(255) NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  company VARCHAR(255),
+  "role" VARCHAR(50) DEFAULT 'user',
+  active BOOLEAN DEFAULT true,
+  createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updatedAt TIMESTAMP,
+  lastLogin TIMESTAMP,
+  refresh_token VARCHAR(255),
 	CONSTRAINT users_email_key UNIQUE (email),
-	CONSTRAINT users_pkey PRIMARY KEY (id)
+	CONSTRAINT users_pkey PRIMARY KEY (idUser)
 );
 CREATE INDEX IF NOT EXISTS idx_users_email ON public.users USING btree (email);
 
 
 CREATE TABLE IF NOT EXISTS public.access_requests (
-	id serial4 NOT NULL,
+	idAccessRequest serial4 NOT NULL,
 	email varchar(255) NOT NULL,
 	"name" varchar(255) NOT NULL,
 	company varchar(255) NOT NULL,
 	reason text NOT NULL,
 	status varchar(50) DEFAULT 'pending'::character varying NULL,
-	created_at timestamptz DEFAULT CURRENT_TIMESTAMP NULL,
+	createdAt timestamptz DEFAULT CURRENT_TIMESTAMP NULL,
 	processed_at timestamptz NULL,
 	processed_by int4 NULL,
-	CONSTRAINT access_requests_pkey PRIMARY KEY (id)
+	CONSTRAINT access_requests_pkey PRIMARY KEY (idAccessRequest)
 );
 CREATE INDEX IF NOT EXISTS idx_access_requests_email ON public.access_requests USING btree (email);
 CREATE INDEX IF NOT EXISTS idx_access_requests_status ON public.access_requests USING btree (status);
 
 ALTER TABLE IF EXISTS public.access_requests DROP CONSTRAINT IF EXISTS access_requests_processed_by_fkey;
-ALTER TABLE IF EXISTS public.access_requests ADD CONSTRAINT access_requests_processed_by_fkey FOREIGN KEY (processed_by) REFERENCES public.users(id);
+ALTER TABLE IF EXISTS public.access_requests ADD CONSTRAINT access_requests_processed_by_fkey FOREIGN KEY (processed_by) REFERENCES public.users(idUser);
 
 -- public.vw_datenow source
 
