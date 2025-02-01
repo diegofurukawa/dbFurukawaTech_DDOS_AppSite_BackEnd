@@ -274,7 +274,7 @@ CREATE TABLE IF NOT EXISTS public.access_requests (
 	company varchar(255) NOT NULL,
 	reason text NOT NULL,
 	status varchar(50) DEFAULT 'pending'::character varying NULL,
-	createdAt timestamptz DEFAULT CURRENT_TIMESTAMP NULL,
+	created_at timestamptz DEFAULT CURRENT_TIMESTAMP NULL,
 	processed_at timestamptz NULL,
 	processed_by int4 NULL,
 	CONSTRAINT access_requests_pkey PRIMARY KEY (idAccessRequest)
@@ -571,9 +571,7 @@ AS WITH cte_datenow AS (
    FROM cte_calendar
   WHERE 1 = 1 AND date_part('month'::text, cte_calendar.ddate) = date_part('month'::text, ( SELECT cte_datenow.ddatenow
            FROM cte_datenow));
-           
-           
-           
+
 -- public.vw_calendar_today source
 
 CREATE OR REPLACE VIEW public.vw_calendar_today
@@ -590,12 +588,7 @@ AS WITH cte_datenow AS (
   WHERE 1 = 1 AND date_part('month'::text, cte_calendar.ddate) = date_part('month'::text, ( SELECT cte_datenow.ddatenow
            FROM cte_datenow)) AND date_part('day'::text, cte_calendar.ddate) = date_part('day'::text, ( SELECT cte_datenow.ddatenow
            FROM cte_datenow));
-           
-           
-           
-           
-           
-           
+
 -- public.vw_calendar_year source
 
 CREATE OR REPLACE VIEW public.vw_calendar_year
@@ -648,3 +641,115 @@ AS WITH cte_mitigations_count AS (
  SELECT cte_mitigations_count.mo_gid,
     cte_mitigations_count.namount
    FROM cte_mitigations_count;
+   
+   
+  
+  
+CREATE OR REPLACE VIEW public.vw_mitigations_get_top AS 
+WITH get_top_mitigations AS (
+SELECT 
+  m.mitigation_id
+  ,a.alert_id
+	,a.host_address
+  ,a.max_impact_bps
+  ,a.max_impact_pps
+	,m.type
+  ,m.auto  
+  ,m.ip_version
+  ,m.degraded
+  ,a.start_time
+  ,a.stop_time
+  ,m.prefix
+FROM mitigations m
+INNER JOIN alerts a ON m.alert_id = a.alert_id
+WHERE 1=1
+	--and a.start_time >= CURRENT_DATE
+	--and m.ongoing is true OR a.ongoing is true
+)
+SELECT * FROM get_top_mitigations
+ORDER BY start_time desc;
+
+
+CREATE OR REPLACE VIEW public.vw_mitigations_get_current AS 
+WITH mitigations_get_current AS (
+SELECT 
+  m.mitigation_id
+  ,a.alert_id
+	,a.host_address
+  ,a.max_impact_bps
+  ,a.max_impact_pps
+	,m.type
+  ,m.auto  
+  ,m.ip_version
+  ,m.degraded
+  ,a.start_time
+  ,a.stop_time
+  ,m.prefix
+FROM mitigations m
+INNER JOIN alerts a ON m.alert_id = a.alert_id
+WHERE 1=1
+	--and a.start_time >= CURRENT_DATE
+	--and m.ongoing is true OR a.ongoing is true
+ORDER BY A.start_time DESC
+LIMIT 1
+)
+SELECT 
+	*
+FROM mitigations_get_current
+ORDER BY start_time desc;
+
+
+CREATE OR REPLACE VIEW public.vw_mitigations_get_by_id AS 
+WITH mitigations_get_by_id AS (
+SELECT 
+  m.mitigation_id
+  ,a.alert_id
+	,a.host_address
+  ,a.max_impact_bps
+  ,a.max_impact_pps
+	,m.type
+  ,m.auto  
+  ,m.ip_version
+  ,m.degraded
+  ,a.start_time
+  ,a.stop_time
+  ,m.prefix
+FROM mitigations m
+INNER JOIN alerts a ON m.alert_id = a.alert_id
+WHERE 1=1
+)
+SELECT * FROM mitigations_get_by_id;
+
+
+CREATE OR REPLACE VIEW public.vw_mitigations_get_active AS 
+WITH mitigations_get_active AS (
+SELECT 
+    m.mitigation_id, 
+    m.name,
+    m.type,
+    a.start_time,
+    a.stop_time,
+    a.host_address,
+    a.mps as mps,
+    a.pps as pps
+FROM mitigations m
+INNER JOIN vw_alerts a ON m.alert_id = a.alert_id
+WHERE 1=1
+)
+SELECT * FROM mitigations_get_active;
+
+
+CREATE OR REPLACE VIEW public.vw_mitigations_get_traffic_data AS 
+WITH mitigations_get_traffic_data AS (
+SELECT 
+    m.mitigation_id,
+  	a.mo_gid,
+    a.start_time AS time,
+    max(max_impact_bps) / 1000000 AS pass_mbps,
+    COALESCE(max(threshold), 0) / 1000000 AS drop_mbps
+FROM alerts a
+INNER JOIN mitigations m ON m.alert_id = a.alert_id
+WHERE 1=1
+GROUP BY a.start_time, a.mo_gid, m.mitigation_id
+)
+SELECT * FROM mitigations_get_traffic_data;
