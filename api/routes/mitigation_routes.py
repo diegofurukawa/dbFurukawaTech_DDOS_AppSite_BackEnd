@@ -294,6 +294,8 @@ class MitigationAPI:
                 SELECT 
                     mitigation_id,
                     alert_id,
+                    mo_gid,
+                    mo_name,
                     COALESCE(host_address, '') as host_address,
                     COALESCE(max_impact_bps, 0) as max_impact_bps,
                     COALESCE(max_impact_pps, 0) as max_impact_pps,
@@ -322,7 +324,7 @@ class MitigationAPI:
             
             # Define column names explicitly
             columns = [
-                'mitigation_id', 'alert_id', 'host_address', 'max_impact_bps',
+                'mitigation_id', 'alert_id', 'mo_gid', 'mo_name', 'host_address', 'max_impact_bps',
                 'max_impact_pps', 'type', 'auto', 'prefix', 'ip_version',
                 'degraded', 'start_time', 'stop_time'
             ]

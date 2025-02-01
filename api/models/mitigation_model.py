@@ -32,6 +32,8 @@ class MitigationTop(BaseModel):
     """Model para retorno de uma mitigação específica pela view vw_mitigations_get_top"""
     mitigation_id: str = Field(description="ID único da mitigação")
     alert_id: str = Field(description="ID do alerta associado")
+    mo_gid: str = Field(description="mo_gid do alerta associado")
+    mo_name: str = Field(description="mo_name do alerta associado")    
     host_address: Optional[str] = Field(None, description="Endereço do host afetado")
     max_impact_bps: Optional[float] = Field(None, description="Impacto máximo em bits por segundo")
     max_impact_pps: Optional[float] = Field(None, description="Impacto máximo em pacotes por segundo")

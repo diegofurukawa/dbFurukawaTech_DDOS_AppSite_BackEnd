@@ -571,7 +571,9 @@ AS WITH cte_datenow AS (
    FROM cte_calendar
   WHERE 1 = 1 AND date_part('month'::text, cte_calendar.ddate) = date_part('month'::text, ( SELECT cte_datenow.ddatenow
            FROM cte_datenow));
-
+           
+           
+           
 -- public.vw_calendar_today source
 
 CREATE OR REPLACE VIEW public.vw_calendar_today
@@ -588,7 +590,12 @@ AS WITH cte_datenow AS (
   WHERE 1 = 1 AND date_part('month'::text, cte_calendar.ddate) = date_part('month'::text, ( SELECT cte_datenow.ddatenow
            FROM cte_datenow)) AND date_part('day'::text, cte_calendar.ddate) = date_part('day'::text, ( SELECT cte_datenow.ddatenow
            FROM cte_datenow));
-
+           
+           
+           
+           
+           
+           
 -- public.vw_calendar_year source
 
 CREATE OR REPLACE VIEW public.vw_calendar_year
@@ -650,6 +657,9 @@ WITH get_top_mitigations AS (
 SELECT 
   m.mitigation_id
   ,a.alert_id
+  ,a.mo_gid
+  ,a.mo_name
+  ,a.mo_misusesig
 	,a.host_address
   ,a.max_impact_bps
   ,a.max_impact_pps
@@ -666,7 +676,22 @@ WHERE 1=1
 	--and a.start_time >= CURRENT_DATE
 	--and m.ongoing is true OR a.ongoing is true
 )
-SELECT * FROM get_top_mitigations
+SELECT
+	t.mitigation_id
+  ,t.alert_id
+  ,t.mo_gid
+  ,t.mo_name
+	,t.host_address
+  ,t.max_impact_bps
+  ,t.max_impact_pps
+	,t.type
+  ,t.auto  
+  ,t.ip_version
+  ,t.degraded
+  ,t.start_time
+  ,t.stop_time
+  ,t.prefix
+FROM get_top_mitigations t
 ORDER BY start_time desc;
 
 
@@ -718,7 +743,20 @@ FROM mitigations m
 INNER JOIN alerts a ON m.alert_id = a.alert_id
 WHERE 1=1
 )
-SELECT * FROM mitigations_get_by_id;
+SELECT
+	m.mitigation_id
+  ,m.alert_id
+	,COALESCE(m.host_address, '') AS host_address
+  ,COALESCE(m.max_impact_bps, 0) AS max_impact_bps
+  ,COALESCE(m.max_impact_pps, 0) AS max_impact_pps
+	,m.type
+  ,m.auto  
+  ,m.ip_version
+  ,COALESCE(m.degraded, '') AS degraded
+  ,m.start_time
+  ,m.stop_time
+  ,m.prefix
+FROM mitigations_get_by_id m;
 
 
 CREATE OR REPLACE VIEW public.vw_mitigations_get_active AS 
@@ -752,4 +790,10 @@ INNER JOIN mitigations m ON m.alert_id = a.alert_id
 WHERE 1=1
 GROUP BY a.start_time, a.mo_gid, m.mitigation_id
 )
-SELECT * FROM mitigations_get_traffic_data;
+SELECT
+	a.mitigation_id
+  ,a.mo_gid
+  ,a.time
+  ,coalesce(a.pass_mbps, 0) as pass_mbps
+  ,coalesce(a.drop_mbps, 0) as drop_mbps
+FROM mitigations_get_traffic_data a;
