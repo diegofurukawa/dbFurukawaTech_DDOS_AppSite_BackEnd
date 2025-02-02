@@ -224,7 +224,16 @@ class CustomerAPI:
     async def get_customer_by_id(self, idCustomer: int) -> CustomerResponse:
         try:
             query = """
-                SELECT idCustomer, nameCustomer, emailContact, phoneNumberContact, address, active, createdAt, updatedAt
+                SELECT 
+                    idCustomer, 
+                    nameCustomer, 
+                    emailContact, 
+                    phoneNumberContact, 
+                    address, 
+                    active,
+                    idCompany,
+                    createdAt, 
+                    updatedAt
                 FROM customers
                 WHERE idCustomer = %s
             """
@@ -238,8 +247,9 @@ class CustomerAPI:
                 )
                 
             return CustomerResponse(**dict(zip(
-                ['idCustomer', 'nameCustomer', 'emailContact', 'phoneNumberContact', 'address', 
-                 'active', 'createdAt', 'updatedAt'],
+                ['idCustomer', 'nameCustomer', 'emailContact', 
+                'phoneNumberContact', 'address', 'active',
+                'idCompany', 'createdAt', 'updatedAt'],  # Atualizando lista de campos
                 result[0]
             )))
 
@@ -280,7 +290,16 @@ class CustomerAPI:
             
             # Main query with pagination
             query = f"""
-                SELECT idCustomer, nameCustomer, emailContact, phoneNumberContact, address, active, createdAt, updatedAt
+                SELECT 
+                    idCustomer, 
+                    nameCustomer, 
+                    emailContact, 
+                    phoneNumberContact, 
+                    address, 
+                    active,
+                    idCompany,
+                    createdAt, 
+                    updatedAt
                 FROM customers
                 {where_clause}
                 ORDER BY nameCustomer
@@ -292,7 +311,11 @@ class CustomerAPI:
             
             # Process results
             customers = []
-            columns = ['idCustomer', 'nameCustomer', 'emailContact', 'phoneNumberContact', 'address', 'active', 'createdAt', 'updatedAt']
+            columns = [
+                'idCustomer', 'nameCustomer', 'emailContact', 
+                'phoneNumberContact', 'address', 'active', 
+                'idCompany', 'createdAt', 'updatedAt'
+            ]
             
             for row in result:
                 customer_dict = dict(zip(columns, row))

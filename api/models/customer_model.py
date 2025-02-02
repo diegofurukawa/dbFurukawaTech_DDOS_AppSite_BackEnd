@@ -24,6 +24,7 @@ class CustomerUpdate(BaseModel):
 
 class CustomerResponse(CustomerBase):
     idCustomer: int
+    idCompany: int  # Assegure-se que este campo existe
     createdAt: datetime
     updatedAt: Optional[datetime] = None
 
