@@ -13,7 +13,7 @@ from ..models.user_model import (
 )
 from ..models.alert_model import PaginatedResponse, PaginationParams
 
-router = APIRouter(prefix="/api/users", tags=["users"])
+router = APIRouter(prefix="/api/users", tags=["Users"])
 logger = create_logger("user_routes")
 
 class UserAPI:

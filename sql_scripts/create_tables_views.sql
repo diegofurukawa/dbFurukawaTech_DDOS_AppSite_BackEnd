@@ -285,6 +285,68 @@ CREATE INDEX IF NOT EXISTS idx_access_requests_status ON public.access_requests 
 ALTER TABLE IF EXISTS public.access_requests DROP CONSTRAINT IF EXISTS access_requests_processed_by_fkey;
 ALTER TABLE IF EXISTS public.access_requests ADD CONSTRAINT access_requests_processed_by_fkey FOREIGN KEY (processed_by) REFERENCES public.users(idUser);
 
+
+
+CREATE TABLE IF NOT EXISTS public.companys(
+  idCompany serial4 NOT NULL,
+  nameCompany VARCHAR(255) UNIQUE NOT NULL,
+  address VARCHAR(255) NULL,
+	emailContact VARCHAR(255) NULL,
+  phoneNumberContact VARCHAR(255) NULL,
+  active BOOLEAN DEFAULT true,
+  createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updatedAt TIMESTAMP,
+	CONSTRAINT company_pkey PRIMARY KEY (idCompany)
+);
+
+CREATE TABLE IF NOT EXISTS public.customers(
+  idCustomer serial4 NOT NULL
+  ,idCompany serial4 NOT NULL
+  ,nameCustomer VARCHAR(255) UNIQUE NOT NULL
+  ,address VARCHAR(255) NULL
+	,emailContact VARCHAR(255) NULL
+  ,phoneNumberContact VARCHAR(255) NULL
+  ,active BOOLEAN DEFAULT true
+  ,createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  ,updatedAt TIMESTAMP
+  ,CONSTRAINT company_customer_pkey PRIMARY KEY (idCustomer, idCompany)
+);
+
+--drop table customer_managed_objects
+--ALTER TABLE orders DROP CONSTRAINT fk_orders_customers;
+
+CREATE TABLE IF NOT EXISTS public.customer_managed_objects(
+		idMogid VARCHAR(255) PRIMARY KEY  -- Chave primária única, pois um MO só pode ter um customer
+    ,idCustomer serial4 NOT NULL
+    ,active BOOLEAN DEFAULT true
+    ,createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ,updatedAt TIMESTAMP
+    ,FOREIGN KEY (idMogid) REFERENCES managedobjects(id)
+    --,FOREIGN KEY (idCustomer) REFERENCES customers(idCustomer)
+);
+
+-- CREATE TABLE IF NOT EXISTS public.customers_mo(
+--   idCustomer serial4 NOT NULL,
+--   idMogid VARCHAR(255) NOT NULL,
+--   active BOOLEAN DEFAULT true,
+--   createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--   updatedAt TIMESTAMP,
+--   FOREIGN KEY (idMogid) REFERENCES managedobjects(id),
+-- 	CONSTRAINT customer_mo_pkey PRIMARY KEY (idCustomer, idMogid)
+-- );
+
+
+/*
+
+SELECT con.*
+FROM pg_catalog.pg_constraint con
+INNER JOIN pg_catalog.pg_class rel ON rel.oid = con.conrelid
+INNER JOIN pg_catalog.pg_namespace nsp ON nsp.oid = connamespace
+WHERE nsp.nspname = 'public'
+ AND rel.relname = 'customers';
+
+*/
+
 -- public.vw_datenow source
 
 CREATE OR REPLACE VIEW public.vw_datenow

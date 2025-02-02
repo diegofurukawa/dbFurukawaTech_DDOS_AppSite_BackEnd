@@ -9,7 +9,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
 # from .bkp import traffic_routes
-from .routes import alert_routes, mitigation_routes, user_routes, customer_routes
+from .routes import (
+    alert_routes
+    
+    ,company_routes
+    ,customer_routes
+    ,customer_mo_routes
+    
+    ,managed_object_routes
+    ,mitigation_routes
+
+    ,user_routes
+)
 
 app = FastAPI(
     title="DDoS Protection API",
@@ -38,9 +49,16 @@ app.add_middleware(
 
 # Include routers from different modules
 app.include_router(alert_routes.router)
-app.include_router(mitigation_routes.router)
-app.include_router(user_routes.router)
+
+app.include_router(company_routes.router)
 app.include_router(customer_routes.router)
+app.include_router(customer_mo_routes.router)
+
+app.include_router(managed_object_routes.router)
+app.include_router(mitigation_routes.router)
+
+app.include_router(user_routes.router)
+
 
 # Root redirect to docs
 @app.get("/")

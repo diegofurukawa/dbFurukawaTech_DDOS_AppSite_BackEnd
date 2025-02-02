@@ -7,7 +7,7 @@ from utils.log import create_logger
 from utils.auth import get_current_user
 from ..models.alert_model import PaginatedResponse, PaginationParams
 
-router = APIRouter(prefix="/api/customers", tags=["customers"])
+router = APIRouter(prefix="/api/customers", tags=["Customers"])
 logger = create_logger("customer_routes")
 
 class CustomerAPI:
@@ -20,8 +20,8 @@ class CustomerAPI:
         try:
             # Check if customer exists
             result = self.db.execute_query(
-                "SELECT idCustomer FROM customers WHERE email = %s",
-                (customer.email,)
+                "SELECT idCustomer FROM customers WHERE emailContact = %s",
+                (customer.emailContact,)
             )
             if result:
                 raise HTTPException(
@@ -29,57 +29,139 @@ class CustomerAPI:
                     detail="Email already registered"
                 )
 
+            # Verify if company exists
+            company_result = self.db.execute_query(
+                "SELECT idCompany FROM companys WHERE idCompany = %s",
+                (customer.idCompany,)
+            )
+            if not company_result:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Company with ID {customer.idCompany} not found"
+                )
+
             query = """
-                INSERT INTO customers (name, email, company, phoneNumber, address, status, createdAt)
+                INSERT INTO customers (
+                    nameCustomer, 
+                    emailContact, 
+                    phoneNumberContact, 
+                    address, 
+                    active,
+                    idCompany,
+                    createdAt
+                )
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
-                RETURNING idCustomer, name, email, company, phoneNumber, address, status, createdAt, updatedAt
+                RETURNING 
+                    idCustomer, 
+                    nameCustomer, 
+                    emailContact, 
+                    phoneNumberContact, 
+                    address, 
+                    active,
+                    idCompany,
+                    createdAt, 
+                    updatedAt
             """
             
             values = (
-                customer.name,
-                customer.email,
-                customer.company,
-                customer.phoneNumber,
+                customer.nameCustomer,
+                customer.emailContact,                
+                customer.phoneNumberContact,
                 customer.address,
-                customer.status,
+                customer.active,
+                customer.idCompany,
                 datetime.now()
             )
 
+            self.logger.debug(f"Executing query with values: {values}")
             result = self.db.execute_query(query, values)
             
-            return CustomerResponse(**dict(zip(
-                ['idCustomer', 'name', 'email', 'company', 'phoneNumber', 'address', 
-                 'status', 'createdAt', 'updatedAt'],
-                result[0]
-            )))
+            if not result or not result[0]:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Failed to create customer record"
+                )
+            
+            # Map the returned columns to a dictionary
+            columns = [
+                'idCustomer', 'nameCustomer', 'emailContact', 
+                'phoneNumberContact', 'address', 'active', 
+                'idCompany', 'createdAt', 'updatedAt'
+            ]
+            customer_data = dict(zip(columns, result[0]))
+            
+            self.logger.debug(f"Created customer data: {customer_data}")
+            return CustomerResponse(**customer_data)
 
+        except HTTPException:
+            raise
         except Exception as e:
-            self.logger.error(f"Error creating customer: {str(e)}")
-            raise HTTPException(status_code=500, detail="Failed to create customer")
-
+            self.logger.error(f"Error creating customer: {str(e)}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to create customer: {str(e)}"
+            )
+        
+        
     async def update_customer(self, idCustomer: int, customer_data: CustomerUpdate, current_user: dict) -> CustomerResponse:
         try:
             update_fields = []
             values = []
             
-            if customer_data.name is not None:
-                update_fields.append("name = %s")
-                values.append(customer_data.name)
-            if customer_data.email is not None:
-                update_fields.append("email = %s")
-                values.append(customer_data.email)
-            if customer_data.company is not None:
-                update_fields.append("company = %s")
-                values.append(customer_data.company)
-            if customer_data.phoneNumber is not None:
-                update_fields.append("phoneNumber = %s")
-                values.append(customer_data.phoneNumber)
+            # Check if customer exists first
+            check_result = self.db.execute_query(
+                "SELECT idCustomer FROM customers WHERE idCustomer = %s",
+                (idCustomer,)
+            )
+            if not check_result:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Customer not found"
+                )
+            
+            if customer_data.nameCustomer is not None:
+                update_fields.append("nameCustomer = %s")
+                values.append(customer_data.nameCustomer)
+
+            if customer_data.emailContact is not None:
+                # Check if email is already used by another customer
+                email_check = self.db.execute_query(
+                    "SELECT idCustomer FROM customers WHERE emailContact = %s AND idCustomer != %s",
+                    (customer_data.emailContact, idCustomer)
+                )
+                if email_check:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Email already registered for another customer"
+                    )
+                update_fields.append("emailContact = %s")
+                values.append(customer_data.emailContact)
+
+            if customer_data.phoneNumberContact is not None:
+                update_fields.append("phoneNumberContact = %s")
+                values.append(customer_data.phoneNumberContact)
+
             if customer_data.address is not None:
                 update_fields.append("address = %s")
                 values.append(customer_data.address)
-            if customer_data.status is not None:
-                update_fields.append("status = %s")
-                values.append(customer_data.status)
+
+            if customer_data.active is not None:
+                update_fields.append("active = %s")
+                values.append(customer_data.active)
+
+            if customer_data.idCompany is not None:
+                # Verify if company exists
+                company_result = self.db.execute_query(
+                    "SELECT idCompany FROM companys WHERE idCompany = %s",
+                    (customer_data.idCompany,)
+                )
+                if not company_result:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Company with ID {customer_data.idCompany} not found"
+                    )
+                update_fields.append("idCompany = %s")
+                values.append(customer_data.idCompany)
 
             if not update_fields:
                 raise HTTPException(
@@ -95,8 +177,20 @@ class CustomerAPI:
                 UPDATE customers 
                 SET {', '.join(update_fields)}
                 WHERE idCustomer = %s
-                RETURNING idCustomer, name, email, company, phoneNumber, address, status, createdAt, updatedAt
+                RETURNING 
+                    idCustomer, 
+                    nameCustomer, 
+                    emailContact, 
+                    phoneNumberContact, 
+                    address, 
+                    active,
+                    idCompany, 
+                    createdAt, 
+                    updatedAt
             """
+            
+            self.logger.debug(f"Executing update query: {query}")
+            self.logger.debug(f"Update values: {values}")
             
             result = self.db.execute_query(query, values)
             
@@ -105,23 +199,32 @@ class CustomerAPI:
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Customer not found"
                 )
-                
-            return CustomerResponse(**dict(zip(
-                ['idCustomer', 'name', 'email', 'company', 'phoneNumber', 'address', 
-                 'status', 'createdAt', 'updatedAt'],
-                result[0]
-            )))
+            
+            # Map the returned columns to a dictionary
+            columns = [
+                'idCustomer', 'nameCustomer', 'emailContact', 
+                'phoneNumberContact', 'address', 'active',
+                'idCompany', 'createdAt', 'updatedAt'
+            ]
+            customer_data = dict(zip(columns, result[0]))
+            
+            self.logger.debug(f"Updated customer data: {customer_data}")
+            return CustomerResponse(**customer_data)
 
         except HTTPException:
             raise
         except Exception as e:
-            self.logger.error(f"Error updating customer: {str(e)}")
-            raise HTTPException(status_code=500, detail="Failed to update customer")
-
+            self.logger.error(f"Error updating customer: {str(e)}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to update customer: {str(e)}"
+            )
+        
+        
     async def get_customer_by_id(self, idCustomer: int) -> CustomerResponse:
         try:
             query = """
-                SELECT idCustomer, name, email, company, phoneNumber, address, status, createdAt, updatedAt
+                SELECT idCustomer, nameCustomer, emailContact, phoneNumberContact, address, active, createdAt, updatedAt
                 FROM customers
                 WHERE idCustomer = %s
             """
@@ -135,8 +238,8 @@ class CustomerAPI:
                 )
                 
             return CustomerResponse(**dict(zip(
-                ['idCustomer', 'name', 'email', 'company', 'phoneNumber', 'address', 
-                 'status', 'createdAt', 'updatedAt'],
+                ['idCustomer', 'nameCustomer', 'emailContact', 'phoneNumberContact', 'address', 
+                 'active', 'createdAt', 'updatedAt'],
                 result[0]
             )))
 
@@ -163,9 +266,8 @@ class CustomerAPI:
             if search:
                 where_clause += """ 
                     AND (
-                        LOWER(name) LIKE LOWER(%s) OR 
-                        LOWER(email) LIKE LOWER(%s) OR 
-                        LOWER(company) LIKE LOWER(%s)
+                        LOWER(nameCustomer) LIKE LOWER(%s) OR 
+                        LOWER(emailContact) LIKE LOWER(%s) 
                     )
                 """
                 search_term = f"%{search}%"
@@ -178,10 +280,10 @@ class CustomerAPI:
             
             # Main query with pagination
             query = f"""
-                SELECT idCustomer, name, email, company, phoneNumber, address, status, createdAt, updatedAt
+                SELECT idCustomer, nameCustomer, emailContact, phoneNumberContact, address, active, createdAt, updatedAt
                 FROM customers
                 {where_clause}
-                ORDER BY name
+                ORDER BY nameCustomer
                 LIMIT %s OFFSET %s
             """
             
@@ -190,8 +292,7 @@ class CustomerAPI:
             
             # Process results
             customers = []
-            columns = ['idCustomer', 'name', 'email', 'company', 'phoneNumber', 'address', 
-                      'status', 'createdAt', 'updatedAt']
+            columns = ['idCustomer', 'nameCustomer', 'emailContact', 'phoneNumberContact', 'address', 'active', 'createdAt', 'updatedAt']
             
             for row in result:
                 customer_dict = dict(zip(columns, row))

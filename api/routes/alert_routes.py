@@ -18,7 +18,7 @@ from ..models import (
     PaginationParams
 )
 
-router = APIRouter(prefix="/api/alerts", tags=["alerts"])
+router = APIRouter(prefix="/api/alerts", tags=["Alerts"])
 logger = create_logger("alert_routes")
 
 class AlertAPI:

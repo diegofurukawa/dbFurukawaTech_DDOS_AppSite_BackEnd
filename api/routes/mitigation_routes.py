@@ -21,7 +21,7 @@ from ..models import (
     MitigationActive
 )
 
-router = APIRouter(prefix="/api/mitigations", tags=["mitigations"])
+router = APIRouter(prefix="/api/mitigations", tags=["Mitigations"])
 logger = create_logger("mitigation_routes")
 
 class MitigationAPI:

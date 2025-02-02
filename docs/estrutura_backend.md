@@ -4,12 +4,14 @@
 │   ├── main.py
 │   ├── models
 │   │   ├── alert_model.py
+│   │   ├── customer_model.py
 │   │   ├── __init__.py
 │   │   ├── mitigation_model.py
 │   │   ├── traffic_model.py
 │   │   └── user_model.py
 │   └── routes
 │       ├── alert_routes.py
+│       ├── customer_routes.py
 │       ├── __init__.py
 │       ├── mitigation_routes.py
 │       └── user_routes.py
@@ -27,21 +29,26 @@
 │       ├── alerts.py
 │       ├── __init__.py
 │       ├── managed_objects.py
-│       └── mitigations.py
+│       ├── mitigations.py
+│       └── users.py
 ├── docs
 │   └── estrutura_backend.md
 ├── LICENSE
 ├── README.md
 ├── requirements.txt
 ├── scripts
-│   ├── backup_backend.sh
+│   ├── run_api_old.sh
 │   ├── run_api.sh
 │   ├── search.sh
 │   └── setup_backend.sh
+├── sql_scripts
+│   └── create_tables_views.sql
 ├── src
 ├── tests
 │   ├── integration
 │   └── unit
 └── utils
+    ├── auth.py
+    ├── generate_secret_key.py
     ├── __init__.py
     └── log.py
