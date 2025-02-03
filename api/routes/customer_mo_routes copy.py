@@ -72,27 +72,8 @@ class CustomerMOAPI:
 
             result = self.db.execute_query(query, values)
             
-            # Get MO and Customer names for response
-            details_query = """
-                SELECT m.name, c.nameCustomer
-                FROM managedobjects m
-                CROSS JOIN customers c
-                WHERE m.id = %s AND c.idCustomer = %s
-            """
-            details_result = self.db.execute_query(details_query, (customer_mo.idMogid, customer_mo.idCustomer))
-            
-            mo_name = details_result[0][0] if details_result else ""
-            customer_name = details_result[0][1] if details_result else ""
-            
-            return CustomerMOResponse(
-                idMogid=result[0][0],
-                idCustomer=result[0][1],
-                active=result[0][2],
-                mo_name=mo_name,
-                customer_name=customer_name,
-                createdAt=result[0][3],
-                updatedAt=result[0][4]
-            )
+            columns = ['idMogid', 'idCustomer', 'active', 'createdAt', 'updatedAt']
+            return CustomerMOResponse(**dict(zip(columns, result[0])))
 
         except HTTPException:
             raise
@@ -101,49 +82,6 @@ class CustomerMOAPI:
             raise HTTPException(
                 status_code=500,
                 detail=f"Failed to create assignment: {str(e)}"
-            )
-
-    async def get_assignment_by_id(self, idMogid: str) -> CustomerMOResponse:
-        """
-        Get a specific customer managed object assignment by ID
-        """
-        try:
-            query = """
-                SELECT mo.idMogid, mo.idCustomer, mo.active, mo.createdAt, mo.updatedAt,
-                       m.name as mo_name, c.nameCustomer as customer_name
-                FROM customer_managed_objects mo
-                LEFT JOIN managedobjects m ON mo.idMogid = m.id
-                LEFT JOIN customers c ON mo.idCustomer = c.idCustomer
-                WHERE mo.idMogid = %s
-            """
-            
-            result = self.db.execute_query(query, (idMogid,))
-            
-            if not result:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Assignment with ID {idMogid} not found"
-                )
-            
-            item_dict = {
-                'idMogid': result[0][0],
-                'idCustomer': result[0][1],
-                'active': result[0][2],
-                'createdAt': result[0][3],
-                'updatedAt': result[0][4],
-                'mo_name': result[0][5],
-                'customer_name': result[0][6]
-            }
-            
-            return CustomerMOResponse(**item_dict)
-            
-        except HTTPException:
-            raise
-        except Exception as e:
-            self.logger.error(f"Error fetching assignment: {str(e)}")
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to fetch assignment"
             )
 
     async def update_assignment(
@@ -200,30 +138,8 @@ class CustomerMOAPI:
                     detail="Assignment not found"
                 )
             
-            # Get MO and Customer names for response
-            details_query = """
-                SELECT m.name, c.nameCustomer
-                FROM managedobjects m
-                CROSS JOIN customers c
-                WHERE m.id = %s AND c.idCustomer = %s
-            """
-            details_result = self.db.execute_query(
-                details_query, 
-                (result[0][0], result[0][1])
-            )
-            
-            mo_name = details_result[0][0] if details_result else ""
-            customer_name = details_result[0][1] if details_result else ""
-            
-            return CustomerMOResponse(
-                idMogid=result[0][0],
-                idCustomer=result[0][1],
-                active=result[0][2],
-                mo_name=mo_name,
-                customer_name=customer_name,
-                createdAt=result[0][3],
-                updatedAt=result[0][4]
-            )
+            columns = ['idMogid', 'idCustomer', 'active', 'createdAt', 'updatedAt']
+            return CustomerMOResponse(**dict(zip(columns, result[0])))
 
         except HTTPException:
             raise
@@ -306,6 +222,50 @@ class CustomerMOAPI:
                 detail="Failed to list assignments"
             )
 
+    async def get_assignment_by_id(self, idMogid: str) -> CustomerMOResponse:
+            """
+            Get a specific customer managed object assignment by ID
+            """
+            try:
+                query = """
+                    SELECT mo.idMogid, mo.idCustomer, mo.active, mo.createdAt, mo.updatedAt,
+                        m.name as mo_name, c.nameCustomer as customer_name
+                    FROM customer_managed_objects mo
+                    LEFT JOIN managedobjects m ON mo.idMogid = m.id
+                    LEFT JOIN customers c ON mo.idCustomer = c.idCustomer
+                    WHERE mo.idMogid = %s
+                """
+                
+                result = self.db.execute_query(query, (idMogid,))
+                
+                if not result:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Assignment with ID {idMogid} not found"
+                    )
+                
+                item_dict = {
+                    'idMogid': result[0][0],
+                    'idCustomer': result[0][1],
+                    'active': result[0][2],
+                    'createdAt': result[0][3],
+                    'updatedAt': result[0][4],
+                    'mo_name': result[0][5],
+                    'customer_name': result[0][6]
+                }
+                
+                return CustomerMOResponse(**item_dict)
+                
+            except HTTPException:
+                raise
+            except Exception as e:
+                self.logger.error(f"Error fetching assignment: {str(e)}")
+                raise HTTPException(
+                    status_code=500,
+                    detail="Failed to fetch assignment"
+                )
+
+        
 # Initialize API handler
 customer_mo_api = CustomerMOAPI()
 
@@ -317,14 +277,6 @@ async def create_assignment(
 ):
     """Assign a managed object to a customer"""
     return await customer_mo_api.create_assignment(customer_mo, current_user)
-
-@router.get("/{idMogid}", response_model=CustomerMOResponse)
-async def get_assignment(
-    idMogid: str,
-    current_user: dict = Depends(get_current_user)
-):
-    """Get a specific managed object assignment by ID"""
-    return await customer_mo_api.get_assignment_by_id(idMogid)
 
 @router.patch("/{idMogid}", response_model=CustomerMOResponse)
 async def update_assignment(
