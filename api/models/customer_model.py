@@ -10,7 +10,7 @@ class CustomerBase(BaseModel):
     address: Optional[str] = None
     active: bool = Field(default=True)  # Changed to boolean with default True
     idCompany: int  # Added Company relationship
-
+    
 class CustomerCreate(CustomerBase):
     pass
 
@@ -25,6 +25,7 @@ class CustomerUpdate(BaseModel):
 class CustomerResponse(CustomerBase):
     idCustomer: int
     idCompany: int  # Assegure-se que este campo existe
+    nameCompany: Optional[str] = None #Campo para formulario de Clientes
     createdAt: datetime
     updatedAt: Optional[datetime] = None
 

@@ -225,17 +225,19 @@ class CustomerAPI:
         try:
             query = """
                 SELECT 
-                    idCustomer, 
-                    nameCustomer, 
-                    emailContact, 
-                    phoneNumberContact, 
-                    address, 
-                    active,
-                    idCompany,
-                    createdAt, 
-                    updatedAt
-                FROM customers
-                WHERE idCustomer = %s
+                    cu.idCustomer, 
+                    cu.nameCustomer, 
+                    cu.emailContact, 
+                    cu.phoneNumberContact, 
+                    cu.address, 
+                    cu.active,
+                    cu.idCompany,
+                    co.namecompany,
+                    cu.createdAt, 
+                    cu.updatedAt
+                FROM customers cu
+                LEFT JOIN companys co on co.idcompany = cu.idcompany
+                WHERE cu.idCustomer = %s
             """
             
             result = self.db.execute_query(query, (idCustomer,))
@@ -249,7 +251,7 @@ class CustomerAPI:
             return CustomerResponse(**dict(zip(
                 ['idCustomer', 'nameCustomer', 'emailContact', 
                 'phoneNumberContact', 'address', 'active',
-                'idCompany', 'createdAt', 'updatedAt'],  # Atualizando lista de campos
+                'idCompany', 'namecompany', 'createdAt', 'updatedAt'],  # Atualizando lista de campos
                 result[0]
             )))
 
@@ -291,18 +293,20 @@ class CustomerAPI:
             # Main query with pagination
             query = f"""
                 SELECT 
-                    idCustomer, 
-                    nameCustomer, 
-                    emailContact, 
-                    phoneNumberContact, 
-                    address, 
-                    active,
-                    idCompany,
-                    createdAt, 
-                    updatedAt
-                FROM customers
+                    cu.idCustomer, 
+                    cu.nameCustomer, 
+                    cu.emailContact, 
+                    cu.phoneNumberContact, 
+                    cu.address, 
+                    cu.active,
+                    cu.idCompany,
+                    co.nameCompany,
+                    cu.createdAt, 
+                    cu.updatedAt
+                FROM customers cu
+                LEFT JOIN companys co on co.idcompany = cu.idcompany
                 {where_clause}
-                ORDER BY nameCustomer
+                ORDER BY cu.nameCustomer
                 LIMIT %s OFFSET %s
             """
             
@@ -314,7 +318,7 @@ class CustomerAPI:
             columns = [
                 'idCustomer', 'nameCustomer', 'emailContact', 
                 'phoneNumberContact', 'address', 'active', 
-                'idCompany', 'createdAt', 'updatedAt'
+                'idCompany', 'nameCompany', 'createdAt', 'updatedAt'
             ]
             
             for row in result:

@@ -16,6 +16,8 @@ class CustomerMOUpdate(BaseModel):
     active: Optional[bool] = None
 
 class CustomerMOResponse(CustomerMOBase):
+    mo_name: str
+    customer_name: str
     createdAt: datetime
     updatedAt: Optional[datetime] = None
 
