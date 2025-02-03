@@ -15,6 +15,7 @@ from .routes import (
     ,company_routes
     ,customer_routes
     ,customer_mo_routes
+    ,customer_dashboard_routes
     
     ,managed_object_routes
     ,mitigation_routes
@@ -53,6 +54,7 @@ app.include_router(alert_routes.router)
 app.include_router(company_routes.router)
 app.include_router(customer_routes.router)
 app.include_router(customer_mo_routes.router)
+app.include_router(customer_dashboard_routes.router)
 
 app.include_router(managed_object_routes.router)
 app.include_router(mitigation_routes.router)

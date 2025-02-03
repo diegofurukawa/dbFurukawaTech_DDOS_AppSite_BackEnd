@@ -10,6 +10,7 @@ from .user_routes import router as user_router
 from .customer_routes import router as customer_router
 from .managed_object_routes import router as managed_object_router
 from .customer_mo_routes import router as customer_mo_router
+from .customer_dashboard_routes import router as customer_dashboard_router
 
 __all__ = [
     'alert_router'
@@ -18,4 +19,5 @@ __all__ = [
     ,'customer_router'
     ,'managed_object_router'
     ,'customer_mo_router'
+    ,'customer_dashboard_router'
 ]

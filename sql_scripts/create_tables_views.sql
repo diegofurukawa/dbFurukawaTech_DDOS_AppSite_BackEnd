@@ -859,3 +859,94 @@ SELECT
   ,coalesce(a.pass_mbps, 0) as pass_mbps
   ,coalesce(a.drop_mbps, 0) as drop_mbps
 FROM mitigations_get_traffic_data a;
+
+
+
+CREATE OR REPLACE VIEW public.vw_customer_alerts AS 
+WITH cte_alerts_amount AS (
+select 
+	date_part('year', start_time) as nYear
+	,date_part('month', start_time) as nMonth
+	,date_part('day', start_time) as nDay
+	,date_part('week', start_time) as nWeek
+	,alerts.mo_gid 
+	,alerts.mo_gid as idMogid
+	,count(distinct alerts.alert_id) as nAmountAlerts
+	,alerts.host_address 
+from alerts 
+group by
+	date_part('year', start_time)
+	,date_part('month', start_time)
+	,date_part('day', start_time)
+	,date_part('week', start_time)
+	,alerts.mo_gid
+	,alerts.host_address 
+),cte_alerts_hosts AS (
+select 
+	date_part('year', start_time) as nYear
+	,date_part('month', start_time) as nMonth
+	,date_part('day', start_time) as nDay
+	,date_part('week', start_time) as nWeek
+	,alerts.mo_gid 
+	,alerts.mo_gid as idMogid
+	,alerts.host_address 
+from alerts 
+group by
+	date_part('year', start_time)
+	,date_part('month', start_time)
+	,date_part('day', start_time)
+	,date_part('week', start_time)
+	,alerts.mo_gid
+	,alerts.host_address 
+)
+select
+	aa.idMogid 	
+	,mo.name
+	,aa.host_address
+	,aa.nAmountAlerts	
+	,aa.nYear
+	,aa.nmonth 
+	,aa.nday
+	,aa.nweek 
+	,array_to_string( array_agg(aa.host_address), '; ') as hosts_address
+from managedobjects mo
+LEFT join cte_alerts_amount aa
+	on aa.idMogid = mo.gid
+LEFT join cte_alerts_hosts ah
+	on ah.idMogid = aa.idMogid
+	and ah.nyear = aa.nyear
+	and ah.nmonth = aa.nmonth
+	and ah.nday = aa.nday
+	and ah.nweek = aa.nweek
+	and aa.host_address is not null
+group by
+	aa.idMogid 	
+	,mo.name
+	,aa.host_address
+	,aa.nAmountAlerts	
+	,aa.nYear
+	,aa.nmonth 
+	,aa.nday
+	,aa.nweek;
+
+
+CREATE OR REPLACE VIEW public.vw_customer_mitigations AS 
+WITH cte_mitigations_amount AS (
+select 
+	date_part('year', a.start_time) as nYear
+	,date_part('month', a.start_time) as nMonth
+	,date_part('day', a.start_time) as nDay
+	,date_part('week', a.start_time) as nWeek
+	,a.mo_gid 
+	,a.mo_gid as idMogid
+	,count(distinct m.mitigation_id ) as nAmountMitigations 
+from mitigations m
+inner join alerts a on a.alert_id = m.alert_id 
+group by
+	date_part('year', a.start_time)
+	,date_part('month', a.start_time)
+	,date_part('day', a.start_time)
+	,date_part('week', a.start_time)
+	,a.mo_gid
+)
+select * from cte_Mitigations_amount;
