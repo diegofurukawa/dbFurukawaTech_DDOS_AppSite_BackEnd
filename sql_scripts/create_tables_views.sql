@@ -950,3 +950,46 @@ group by
 	,a.mo_gid
 )
 select * from cte_Mitigations_amount;
+
+
+-- public.vw_customer_dashboard source
+
+CREATE OR REPLACE VIEW public.vw_customer_dashboard
+AS WITH cte_customer_dashboard AS (
+         SELECT c2.idcompany,
+            c2.namecompany,
+            c.idcustomer,
+            c.namecustomer,
+            ca.idmogid,
+            ca.name,
+            ca.host_address,
+            COALESCE(ca.namountalerts, 0::bigint) AS namountalerts,
+            COALESCE(cm.namountmitigations, 0::bigint) AS namountmitigations,
+            ca.nyear,
+            ca.nmonth,
+            ca.nday,
+            ca.nweek,
+            ca.hosts_address
+           FROM managedobjects mo
+             LEFT JOIN vw_customer_alerts ca ON ca.idmogid::text = mo.gid::text
+             LEFT JOIN vw_customer_mitigations cm ON cm.idmogid::text = ca.idmogid::text AND cm.nyear = ca.nyear AND cm.nmonth = ca.nmonth AND cm.nday = ca.nday AND cm.nweek = ca.nweek
+             LEFT JOIN customer_managed_objects cmo ON cmo.idmogid::text = mo.gid::text AND cmo.active IS TRUE
+             LEFT JOIN customers c ON c.idcustomer = cmo.idcustomer AND c.active IS TRUE
+             LEFT JOIN companys c2 ON c2.idcompany = c.idcompany AND c2.active IS TRUE
+          WHERE 1 = 1
+        )
+ SELECT COALESCE(cte_customer_dashboard.idcompany, 0) AS idcompany,
+    COALESCE(cte_customer_dashboard.namecompany, 'N/A'::character varying) AS namecompany,
+    COALESCE(cte_customer_dashboard.idcustomer, 0) AS idcustomer,
+    COALESCE(cte_customer_dashboard.namecustomer, 'N/A'::character varying) AS namecustomer,
+    cte_customer_dashboard.idmogid,
+    cte_customer_dashboard.name,
+    COALESCE(cte_customer_dashboard.host_address, 'N/A'::character varying) AS host_address,
+    COALESCE(cte_customer_dashboard.namountalerts, 0::bigint) AS namountalerts,
+    COALESCE(cte_customer_dashboard.namountmitigations, 0::bigint) AS namountmitigations,
+    cte_customer_dashboard.nyear,
+    cte_customer_dashboard.nmonth,
+    cte_customer_dashboard.nday,
+    cte_customer_dashboard.nweek,
+    COALESCE(cte_customer_dashboard.hosts_address, 'N/A'::text) AS hosts_address
+   FROM cte_customer_dashboard;

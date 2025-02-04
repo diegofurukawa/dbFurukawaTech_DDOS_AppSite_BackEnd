@@ -11,7 +11,7 @@ from .customer_model import CustomerBase, CustomerCreate, CustomerUpdate, Custom
 from .company_model import CompanyBase, CompanyCreate, CompanyUpdate, CompanyResponse
 from .managed_object_model import ManagedObjectResponse
 from .customer_mo_model import CustomerMOBase, CustomerMOCreate, CustomerMOResponse, CustomerMOUpdate
-from .customer_dashboard_model import CustomerDashboardResponse
+from .customer_dashboard_model import CustomerDashboardResponse, CustomerListResponse
 
 
 __all__ = [
@@ -58,6 +58,7 @@ __all__ = [
 
     # Customer Dash
     ,'CustomerDashboardResponse'
+    ,'CustomerListResponse'
 
     #Company
     ,'CompanyBase'
