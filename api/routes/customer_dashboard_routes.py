@@ -235,27 +235,49 @@ class CustomerDashboardAPI:
 
     async def get_dashboard_data(
         self,
-        nyear: int = Query(..., description="Ano"),
-        nmonth: int = Query(..., description="Mês"),
-        nday: Optional[int] = Query(None, description="Dia (opcional)"),
-        page: int = Query(1, ge=1, description="Número da página"),
-        page_size: int = Query(10, ge=1, le=100, description="Itens por página")
+        mogid: Optional[str] = None,
+        nyear: Optional[int] = None,
+        nmonth: Optional[int] = None,
+        nday: Optional[int] = None,
+        page: int = 1,
+        page_size: int = 10
     ) -> PaginatedResponse[CustomerListResponse]:
+        """
+        Obtém dados do dashboard com paginação
+        """
         try:
-            params = PaginationParams(page=page, page_size=page_size)
+            # Validações básicas
+            if page < 1:
+                page = 1
+            if page_size < 1:
+                page_size = 10
+            if page_size > 100:
+                page_size = 100
+
+            pagination = PaginationParams(page=page, page_size=page_size)
             
-            # Base da query usando a view
-            where_conditions = ["nyear = %s AND nmonth = %s"]
-            query_params = [nyear, nmonth]
-            
-            # Adiciona filtro por dia se fornecido
+            # Base da query
+            where_conditions = []
+            query_params = []
+
+            # Adiciona filtros se fornecidos
+            if nyear is not None:
+                where_conditions.append("nyear = %s")
+                query_params.append(nyear)
+            if nmonth is not None:
+                where_conditions.append("nmonth = %s")
+                query_params.append(nmonth)
             if nday is not None:
                 where_conditions.append("nday = %s")
                 query_params.append(nday)
+            if mogid:
+                where_conditions.append("idmogid = %s")
+                query_params.append(mogid)
+
+            # Constrói a cláusula WHERE
+            where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
             
-            where_clause = " AND ".join(where_conditions)
-            
-            # Conta total de registros
+            # Query de contagem
             count_query = f"""
                 SELECT COUNT(*)
                 FROM vw_customer_dashboard
@@ -268,27 +290,27 @@ class CustomerDashboardAPI:
             # Query principal
             query = f"""
                 SELECT 
-                    COALESCE(idcompany, 0) AS idcompany
-                    ,COALESCE(namecompany, 'N/A') AS namecompany
-                    ,COALESCE(idcustomer, 0) AS idcustomer
-                    ,COALESCE(namecustomer, 'N/A') AS namecustomer
-                    ,idmogid
-                    ,name
-                    ,COALESCE(host_address, 'N/A') AS host_address
-                    ,namountalerts
-                    ,namountmitigations
-                    ,nyear
-                    ,nmonth
-                    ,nday
-                    ,nweek
-                    ,COALESCE(hosts_address, 'N/A') AS hosts_address
+                    COALESCE(idcompany, 0) AS idcompany,
+                    COALESCE(namecompany, 'N/A') AS namecompany,
+                    COALESCE(idcustomer, 0) AS idcustomer,
+                    COALESCE(namecustomer, 'N/A') AS namecustomer,
+                    idmogid,
+                    name,
+                    COALESCE(host_address, 'N/A') AS host_address,
+                    COALESCE(namountalerts, 0) as namountalerts,
+                    COALESCE(namountmitigations, 0) as namountmitigations,
+                    nyear,
+                    nmonth,
+                    nday,
+                    nweek,
+                    COALESCE(hosts_address, 'N/A') AS hosts_address
                 FROM vw_customer_dashboard
                 WHERE {where_clause}
                 ORDER BY namecompany, namecustomer, name
                 LIMIT %s OFFSET %s
             """
-            
-            final_params = tuple(query_params + [params.page_size, params.offset])
+
+            final_params = tuple(query_params + [pagination.page_size, pagination.offset])
             result = self.db.execute_query(query, final_params)
             
             # Processa resultados
@@ -302,20 +324,18 @@ class CustomerDashboardAPI:
             
             for row in result:
                 item_dict = dict(zip(columns, row))
-                # Converte tipos conforme necessário
-                item_dict['namountalerts'] = int(item_dict['namountalerts']) if item_dict['namountalerts'] is not None else 0
-                item_dict['namountmitigations'] = int(item_dict['namountmitigations']) if item_dict['namountmitigations'] is not None else 0
-                item_dict['nyear'] = int(item_dict['nyear']) if item_dict['nyear'] is not None else 0
-                item_dict['nmonth'] = int(item_dict['nmonth']) if item_dict['nmonth'] is not None else 0
-                item_dict['nday'] = int(item_dict['nday']) if item_dict['nday'] is not None else 0
-                item_dict['nweek'] = int(item_dict['nweek']) if item_dict['nweek'] is not None else 0
+                for field in ['namountalerts', 'namountmitigations', 'nyear', 'nmonth', 'nday', 'nweek']:
+                    try:
+                        item_dict[field] = int(item_dict[field]) if item_dict[field] is not None else 0
+                    except (TypeError, ValueError):
+                        item_dict[field] = 0
                 
                 dashboard_items.append(CustomerListResponse(**item_dict))
             
             return PaginatedResponse.create(
                 items=dashboard_items,
                 total=total_records,
-                params=params
+                params=pagination
             )
             
         except Exception as e:
@@ -374,13 +394,18 @@ async def get_dashboard_data(
     nyear: int = Query(..., ge=2000, le=2100, description="Ano"),
     nmonth: int = Query(..., ge=1, le=12, description="Mês"),
     nday: Optional[int] = Query(None, ge=1, le=31, description="Dia (opcional)"),
+    mogid: Optional[str] = Query(None, description="ID do objeto gerenciado"),
     page: int = Query(1, ge=1, description="Número da página"),
     page_size: int = Query(10, ge=1, le=100, description="Itens por página")
 ):
     """
-    Obtém dados do dashboard do cliente com paginação
-    - Filtra por ano e mês (obrigatórios)
-    - Filtra por dia (opcional)
-    - Suporta paginação
+    Obtém lista paginada de dados do dashboard
     """
-    return await dashboard_api.get_dashboard_data(nyear, nmonth, nday, page, page_size)
+    return await dashboard_api.get_dashboard_data(
+        mogid=mogid,
+        nyear=nyear,
+        nmonth=nmonth,
+        nday=nday,
+        page=page,
+        page_size=page_size
+    )
