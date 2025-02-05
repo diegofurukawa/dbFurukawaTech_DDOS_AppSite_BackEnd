@@ -993,3 +993,82 @@ AS WITH cte_customer_dashboard AS (
     cte_customer_dashboard.nweek,
     COALESCE(cte_customer_dashboard.hosts_address, 'N/A'::text) AS hosts_address
    FROM cte_customer_dashboard;
+
+
+
+CREATE OR REPLACE VIEW public.vw_customer_alerts_top_month AS
+WITH cte_customer_alerts_top_month AS (
+ SELECT 
+  ROW_NUMBER() OVER ( PARTITION BY nyear,nmonth ORDER BY namountalerts desc ) as RowId
+  ,* 
+  FROM (
+  SELECT 
+	idmogid 
+  ,name as NameMoGid
+  ,nyear
+  ,nmonth
+  ,sum(namountalerts) as namountalerts
+FROM vw_customer_alerts
+GROUP BY 
+  idmogid 
+  ,name
+  ,nyear
+  ,nmonth
+) AS Top
+)
+SELECT
+	RowId
+  ,idmogid 
+  ,NameMoGid
+  ,nyear
+  ,nmonth
+  ,namountalerts
+FROM cte_customer_alerts_top_month;
+
+
+
+
+CREATE OR REPLACE VIEW public.vw_customer_alerts_graph AS
+WITH cte_customer_alerts_all_month AS (
+    SELECT 
+        nyear,
+        nmonth,
+        nday,
+        '0' as idmogid,
+        'Total Alerts' as name,
+        SUM(namountalerts) as namountalerts
+    FROM vw_customer_dashboard
+    GROUP BY nyear, nmonth, nday
+),
+cte_customer_alerts_mogid_month AS (
+SELECT 
+    nyear,
+    nmonth,
+    nday,
+    idmogid,
+    name,
+    SUM(namountalerts) as namountalerts
+FROM vw_customer_dashboard
+GROUP BY nyear, nmonth, nday, idmogid, name
+)
+,cte_result as (
+SELECT * FROM cte_customer_alerts_all_month
+UNION
+SELECT * FROM cte_customer_alerts_mogid_month
+)
+select 
+	COALESCE(RowId, 0) AS RowId
+  ,a.nyear
+  ,a.nmonth
+  ,a.nday
+  ,a.idmogid
+  ,a.name
+  ,a.namountalerts
+  ,CASE WHEN COALESCE(RowId, 0) = 0 THEN  a.namountalerts ELSE b.namountalerts END as nAmountAlertsMonth
+  ,CAST(((a.namountalerts / b.namountalerts) * 100) as numeric(5,2)) as nPercAlerts
+from cte_result a
+	LEFT JOIN vw_customer_alerts_top_month b 
+  on b.idmogid = a.idmogid
+  and b.nyear = a.nyear
+  and b.nmonth = a.nmonth  
+where 1=1;

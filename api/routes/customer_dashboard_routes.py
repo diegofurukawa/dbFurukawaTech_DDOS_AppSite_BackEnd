@@ -195,60 +195,25 @@ class CustomerDashboardAPI:
                 nmonth = current_date.month
 
             query = """
-                WITH cte_customer_alerts_all_month AS (
-                    SELECT 
-                        nyear,
-                        nmonth,
-                        nday,
-                        '0' as idmogid,
-                        'Total Alerts' as name,
-                        SUM(namountalerts) as namountalerts
-                    FROM vw_customer_dashboard
-                    WHERE nyear = %s AND nmonth = %s
-                    GROUP BY nyear, nmonth, nday
-                ),
-                cte_customer_alerts_mogid_month AS (
-                    SELECT 
-                        nyear,
-                        nmonth,
-                        nday,
-                        idmogid,
-                        name,
-                        SUM(namountalerts) as namountalerts
-                    FROM vw_customer_dashboard
-                    WHERE nyear = %s AND nmonth = %s
+                    SELECT
+                        a.nyear
+                        ,a.nmonth
+                        ,a.nday
+                        ,a.idmogid
+                        ,a.name
+                        ,a.namountalerts
+                    FROM vw_customer_alerts_graph a                    
+                    WHERE a.rowid <= 5
+                    and a.nyear = %s AND a.nmonth = %s
             """
-            params = [nyear, nmonth, nyear, nmonth]
+            params = [nyear, nmonth]
 
             # Add mogid filter if provided
             if mogid:
                 query += " AND idmogid = %s"
                 params.append(mogid)
 
-            query += """
-                GROUP BY nyear, nmonth, nday, idmogid, name
-                )
-                ,cte_result as (
-                SELECT 
-                    1 as RowId
-                ,* 
-                FROM cte_customer_alerts_all_month
-                UNION
-                SELECT 
-                    ROW_NUMBER() OVER ( PARTITION BY nyear,nmonth, nday ORDER BY namountalerts desc ) as RowId
-                ,* 
-                FROM cte_customer_alerts_mogid_month
-                )
-                select
-                	nyear
-                    ,nmonth
-                    ,nday
-                    ,idmogid
-                    ,name
-                    ,namountalerts
-                from cte_result
-                where rowid <= 5
-            """
+            query += """ """
 
             result = self.db.execute_query(query, tuple(params))
             
