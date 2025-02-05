@@ -226,12 +226,28 @@ class CustomerDashboardAPI:
                 params.append(mogid)
 
             query += """
-                    GROUP BY nyear, nmonth, nday, idmogid, name
+                GROUP BY nyear, nmonth, nday, idmogid, name
                 )
-                SELECT * FROM cte_customer_alerts_all_month
+                ,cte_result as (
+                SELECT 
+                    1 as RowId
+                ,* 
+                FROM cte_customer_alerts_all_month
                 UNION
-                SELECT * FROM cte_customer_alerts_mogid_month
-                ORDER BY nday, name
+                SELECT 
+                    ROW_NUMBER() OVER ( PARTITION BY nyear,nmonth, nday ORDER BY namountalerts desc ) as RowId
+                ,* 
+                FROM cte_customer_alerts_mogid_month
+                )
+                select
+                	nyear
+                    ,nmonth
+                    ,nday
+                    ,idmogid
+                    ,name
+                    ,namountalerts
+                from cte_result
+                where rowid <= 5
             """
 
             result = self.db.execute_query(query, tuple(params))
