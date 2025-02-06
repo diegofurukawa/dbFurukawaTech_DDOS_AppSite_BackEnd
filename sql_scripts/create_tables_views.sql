@@ -1072,3 +1072,127 @@ from cte_result a
   and b.nyear = a.nyear
   and b.nmonth = a.nmonth  
 where 1=1;
+
+
+CREATE OR REPLACE VIEW public.vw_customer_dashboard_list AS
+WITH cte_customer_total_month AS(
+SELECT 
+		nyear,
+    nmonth,
+    0 AS nday,
+    0 AS nweek,
+    COALESCE(idcompany, 0) AS idcompany,
+    COALESCE(namecompany, 'N/A') AS namecompany,
+    COALESCE(idcustomer, 0) AS idcustomer,
+    COALESCE(namecustomer, 'N/A') AS namecustomer,
+    idmogid,
+    name,          
+    SUM(COALESCE(namountalerts, 0)) as namountalerts,
+    SUM(COALESCE(namountmitigations, 0)) as namountmitigations    
+FROM vw_customer_dashboard
+GROUP BY 
+		nyear,
+    nmonth,    
+    COALESCE(idcompany, 0),
+    COALESCE(namecompany, 'N/A'),
+    COALESCE(idcustomer, 0),
+    COALESCE(namecustomer, 'N/A'),
+    idmogid,
+    name
+),cte_customer_hosts AS (
+SELECT 
+	nyear,
+  nmonth,
+  idmogid,
+	hosts_address
+FROM vw_customer_dashboard 
+GROUP BY 
+	nyear,
+  nmonth,
+  idmogid,
+	hosts_address
+),cte_customer_zero AS (
+SELECT
+  aa.idcompany
+  ,aa.namecompany
+  ,aa.idcustomer
+  ,aa.namecustomer
+  ,aa.idmogid
+  ,aa.name
+  ,aa.namountalerts
+  ,aa.namountmitigations
+  ,aa.nyear
+  ,aa.nmonth
+  ,aa.nday
+  ,aa.nweek
+  ,array_to_string(array_agg(DISTINCT bb.hosts_address), '; ') as hosts_address
+FROM cte_customer_total_month aa
+LEFT JOIN cte_customer_hosts bb 
+	on aa.idmogid = bb.idmogid
+  AND aa.nyear = bb.nyear
+  AND aa.nmonth = bb.nmonth
+GROUP BY
+	aa.idcompany
+  ,aa.namecompany
+  ,aa.idcustomer
+  ,aa.namecustomer
+  ,aa.idmogid
+  ,aa.name
+  ,aa.namountalerts
+  ,aa.namountmitigations
+  ,aa.nyear
+  ,aa.nmonth
+  ,aa.nday
+  ,aa.nweek
+),cte_customer_result AS (
+SELECT 
+    idcompany,
+    namecompany,
+    idcustomer,
+    namecustomer,
+    idmogid,
+    name,
+    '' as host_address,
+    namountalerts,
+    namountmitigations,
+    nyear,
+    nmonth,
+    nday,
+    nweek,
+    hosts_address
+FROM cte_customer_zero aa
+UNION
+SELECT 
+    COALESCE(idcompany, 0) AS idcompany,
+    COALESCE(namecompany, 'N/A') AS namecompany,
+    COALESCE(idcustomer, 0) AS idcustomer,
+    COALESCE(namecustomer, 'N/A') AS namecustomer,
+    idmogid,
+    name,
+    COALESCE(host_address, 'N/A') AS host_address,
+    COALESCE(namountalerts, 0) as namountalerts,
+    COALESCE(namountmitigations, 0) as namountmitigations,
+    nyear,
+    nmonth,
+    nday,
+    nweek,
+    COALESCE(hosts_address, 'N/A') AS hosts_address
+FROM vw_customer_dashboard
+)
+SELECT 
+  idcompany,
+  namecompany,
+  idcustomer,
+  namecustomer,
+  idmogid,
+  name,
+  host_address,
+  namountalerts,
+  namountmitigations,
+  nyear,
+  nmonth,
+  nday,
+  nweek,
+  hosts_address
+FROM cte_customer_result
+WHERE 1=1;

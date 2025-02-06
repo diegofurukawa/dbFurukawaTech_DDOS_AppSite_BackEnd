@@ -1,17 +1,8 @@
-"""
-Database Module
-
-Módulo responsável pelo gerenciamento de conexões e operações com o banco de dados PostgreSQL.
-Fornece funcionalidades para criar tabelas, inserir e atualizar dados.
-"""
-
 import psycopg2
 import json
-from psycopg2 import OperationalError
-import os
+from psycopg2 import pool, OperationalError
 from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime
-from dotenv import load_dotenv
 
 from utils.log import create_logger
 from .schemas import TABLE_SCHEMAS
@@ -23,30 +14,53 @@ module_logger = create_logger("database")
 class DatabaseConnection:
     """Gerenciador de conexão com o banco de dados"""
     
+    _pool = None
+    
+    @classmethod
+    def init_pool(cls) -> None:
+        """
+        Inicializa o pool de conexões se ainda não existir.
+        """
+        if cls._pool is None:
+            try:
+                config = DatabaseConfig.get_config()
+                
+                # Extrair e remover configurações específicas do pool
+                minconn = config.pop('minconn', 1)
+                maxconn = config.pop('maxconn', 20)
+                
+                # Criar pool com as configurações separadas
+                cls._pool = pool.SimpleConnectionPool(
+                    minconn=minconn,
+                    maxconn=maxconn,
+                    **config
+                )
+                module_logger.info(f"Pool de conexões inicializado com sucesso (min={minconn}, max={maxconn})")
+            except Exception as e:
+                module_logger.error(f"Erro ao inicializar pool de conexões: {e}")
+                raise
+    
     def __init__(self):
         """Inicializa o gerenciador de banco de dados"""
         self.logger = module_logger.getChild(self.__class__.__name__)
         self.connection = None
-        self.config = DatabaseConfig.get_config()
+        self.init_pool()
 
     def connect(self) -> None:
         """
-        Estabelece conexão com o banco de dados.
+        Obtém uma conexão do pool.
         
         Raises:
             OperationalError: Se houver erro na conexão
         """
         try:
-            self.connection = psycopg2.connect(**self.config)
-            self.logger.info("Conexão ao banco de dados PostgreSQL estabelecida")
-        except OperationalError as e:
-            self.logger.error(
-                f"Erro ao conectar ao banco de dados: {e}\n"
-                f"Host: {self.config['host']}, "
-                f"Port: {self.config['port']}, "
-                f"Database: {self.config['database']}, "
-                f"User: {self.config['user']}"
-            )
+            self.connection = self._pool.getconn()
+            if self.connection:
+                self.logger.info("Conexão obtida do pool com sucesso")
+            else:
+                raise OperationalError("Não foi possível obter conexão do pool")
+        except Exception as e:
+            self.logger.error(f"Erro ao obter conexão do pool: {e}")
             raise
 
     def execute_query(self, query: str, params: Optional[Tuple] = None) -> List[Tuple]:
@@ -64,25 +78,30 @@ class DatabaseConnection:
             Exception: Se houver erro na execução
         """
         if not self.connection:
-            raise Exception("Conexão com o banco de dados não está aberta")
+            self.connect()
 
         try:
             with self.connection.cursor() as cursor:
                 cursor.execute(query, params)
                 self.connection.commit()
-                self.logger.info("Query executada com sucesso")
+                self.logger.debug("Query executada com sucesso")  # Mudado para debug para reduzir logs
                 return cursor.fetchall()
         except Exception as e:
             self.logger.error(f"Erro ao executar query: {e}")
             self.connection.rollback()
+            if "connection already closed" in str(e):
+                self.logger.info("Tentando reconectar e reexecutar a query")
+                self.close()
+                self.connect()
+                return self.execute_query(query, params)
             raise
-
+        
     def close(self) -> None:
-        """Fecha a conexão com o banco de dados"""
+        """Devolve a conexão para o pool"""
         if self.connection:
-            self.connection.close()
+            self._pool.putconn(self.connection)
             self.connection = None
-            self.logger.info("Conexão com o banco de dados fechada")
+            self.logger.debug("Conexão devolvida ao pool")  # Mudado para debug para reduzir logs
 
     def __enter__(self) -> 'DatabaseConnection':
         """Suporte para uso com context manager"""
@@ -90,8 +109,19 @@ class DatabaseConnection:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Fecha conexão ao sair do context manager"""
+        """Devolve conexão ao pool ao sair do context manager"""
         self.close()
+
+    @classmethod
+    def dispose_pool(cls) -> None:
+        """
+        Fecha todas as conexões do pool e limpa o pool.
+        Deve ser chamado quando a aplicação for encerrada.
+        """
+        if cls._pool:
+            cls._pool.closeall()
+            cls._pool = None
+            module_logger.info("Pool de conexões encerrado")
 
 
 class DataBaseWS:
@@ -158,7 +188,7 @@ class DataBaseWS:
             with self.connection.cursor() as cursor:
                 cursor.execute(query, params)
                 self.connection.commit()
-                self.logger.info("Query executada com sucesso")
+                self.logger.debug("Query executada com sucesso")  # Mudado para debug
                 return cursor.fetchall()
         except Exception as e:
             self.logger.error(f"Erro ao executar query: {e}")
@@ -324,7 +354,7 @@ class DataBaseWS:
             with self.connection.cursor() as cursor:
                 cursor.execute(query, params)
                 self.connection.commit()
-                self.logger.info("Update query executed successfully")
+                self.logger.debug("Update query executed successfully")  # Mudado para debug
         except Exception as e:
             self.logger.error(f"Error executing update query: {e}")
             self.connection.rollback()
@@ -371,7 +401,7 @@ class DataBaseWS:
         if self.connection:
             self.connection.close()
             self.connection = None
-            self.logger.info("Conexão com o banco de dados fechada")
+            self.logger.debug("Conexão com o banco de dados fechada")  # Mudado para debug
 
     def __del__(self) -> None:
         """Destrutor da classe"""

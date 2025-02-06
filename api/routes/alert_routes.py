@@ -98,8 +98,21 @@ class AlertAPI:
             """
             
             result = self.db.execute_query(query)
+            
+            # Se não houver resultados, retorna objeto com valores zerados
+            if not result or len(result) == 0:
+                return AlertStats(
+                    total=0,
+                    high=0,
+                    medium=0,
+                    low=0,
+                    total_high=0,
+                    total_medium=0,
+                    total_low=0
+                )
+                
             columns = ['total', 'high', 'medium', 'low', 'total_high', 
-                      'total_medium', 'total_low', 'mitigation_id']
+                    'total_medium', 'total_low', 'mitigation_id']
             data = dict(zip(columns, result[0]))
             
             processed_data = {k: int(v or 0) for k, v in data.items()}
