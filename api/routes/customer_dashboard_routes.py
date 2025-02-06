@@ -284,10 +284,12 @@ class CustomerDashboardAPI:
                 # Constrói a cláusula WHERE
                 where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
                 
+                print(where_clause)
+
                 # Query de contagem
                 count_query = f"""
                     SELECT COUNT(*)
-                    FROM vw_customer_dashboard
+                    FROM vw_customer_dashboard_list
                     WHERE {where_clause}
                 """
                 
