@@ -35,11 +35,15 @@
 │   │   └── mitigations
 │   ├── __init__.py
 │   └── schemas
-│       ├── alerts.py
 │       ├── __init__.py
-│       ├── managed_objects.py
-│       ├── mitigations.py
-│       └── users.py
+│       ├── keys.py
+│       ├── old
+│       │   ├── alerts.py
+│       │   ├── managed_objects.py
+│       │   ├── mitigations.py
+│       │   └── users.py
+│       ├── tables.py
+│       └── views.py
 ├── docs
 │   └── estrutura_backend.md
 ├── LICENSE
@@ -62,4 +66,4 @@
     ├── __init__.py
     └── log.py
 
-19 directories, 44 files
+20 directories, 47 files

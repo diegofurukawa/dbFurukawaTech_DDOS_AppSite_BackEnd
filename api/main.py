@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from data.database import DatabaseConnection
+from data.schemas import execute_tables, execute_keys, execute_views
 from utils.log import create_logger
 
 # from .bkp import traffic_routes
@@ -69,6 +70,36 @@ async def startup_event():
         logger.info("Database connection pool initialized successfully")
     except Exception as e:
         logger.error(f"Failed to initialize database connection pool: {e}")
+        raise
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize connection pool, create tables and perform other startup tasks"""
+    try:
+        logger.info("Initializing database connection pool...")
+        DatabaseConnection.init_pool()
+        logger.info("Database connection pool initialized successfully")
+        
+        logger.info("Setting up database...")
+        with DatabaseConnection() as db:
+            # Create tables first
+            logger.info("Creating/Verifying database tables...")
+            execute_tables(db)
+            logger.info("Database tables verified successfully")
+            
+            # Then create indices and foreign keys
+            logger.info("Creating/Verifying indices and foreign keys...")
+            execute_keys(db)
+            logger.info("Indices and foreign keys verified successfully")
+            
+            # Finally create views
+            logger.info("Creating/Updating database views...")
+            execute_views(db)
+            logger.info("Database views updated successfully")
+            
+        logger.info("Database setup completed successfully")
+    except Exception as e:
+        logger.error(f"Startup error: {e}")
         raise
 
 @app.on_event("shutdown")

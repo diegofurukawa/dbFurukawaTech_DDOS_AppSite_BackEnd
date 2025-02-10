@@ -1,22 +1,15 @@
-# __init__.py (dentro da pasta schemas)
+# __init__.py
 """Database schemas initialization module"""
 
-from .alerts import ALERTS_SCHEMA
-from .mitigations import MITIGATIONS_SCHEMA
-from .managed_objects import MANAGED_OBJECTS_SCHEMA
-from .users import USERS_SCHEMA
-
-TABLE_SCHEMAS = {
-    "alerts": ALERTS_SCHEMA,
-    "mitigations": MITIGATIONS_SCHEMA,
-    "managed_objects": MANAGED_OBJECTS_SCHEMA,
-    "users": USERS_SCHEMA
-}
+from .tables import TABLE_SCHEMAS, execute_tables
+from .keys import SQL_SCRIPTS as KEY_SCRIPTS, execute_keys
+from .views import SQL_SCRIPTS as VIEW_SCRIPTS, execute_scripts as execute_views
 
 __all__ = [
     'TABLE_SCHEMAS',
-    'ALERTS_SCHEMA',
-    'MITIGATIONS_SCHEMA',
-    'MANAGED_OBJECTS_SCHEMA'
-    'USERS_SCHEMA'
+    'KEY_SCRIPTS',
+    'VIEW_SCRIPTS',
+    'execute_tables',
+    'execute_keys',
+    'execute_views'
 ]
