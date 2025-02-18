@@ -514,6 +514,7 @@ MITIGATION_VIEWS = {
         WITH mitigations_get_active AS (
         SELECT 
             m.mitigation_id, 
+                m.mo_gid,
             m.name,
             m.type,
             a.start_time,
@@ -525,7 +526,7 @@ MITIGATION_VIEWS = {
         INNER JOIN vw_alerts a ON m.alert_id = a.alert_id
         WHERE 1=1
         )
-        SELECT * FROM mitigations_get_active;                
+        SELECT * FROM mitigations_get_active;               
     """,
 
     'vw_mitigations_get_traffic_data': """

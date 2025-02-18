@@ -76,6 +76,7 @@ class MitigationCurrent(BaseModel):
 class MitigationActive(BaseModel):
     """Model para retorno de uma mitigação específica pela view vw_mitigations_get_active"""
     mitigation_id: str = Field(description="ID único da mitigação")
+    mo_gid: str = Field(description="mo_gid do alerta associado")
     name: str = Field(description="Nome da mitigação")
     type: str = Field(description="Tipo da mitigação")
     start_time: datetime = Field(description="Horário de início da mitigação")

@@ -414,6 +414,7 @@ class MitigationAPI:
             query = """
                     SELECT
                         m.mitigation_id
+                        ,m.mo_gid
                         ,m.name
                         ,m.type
                         ,m.start_time
@@ -431,7 +432,7 @@ class MitigationAPI:
             if not result:
                 return []
                 
-            columns = ['mitigation_id', 'name', 'type', 'start_time', 
+            columns = ['mitigation_id', 'mo_gid', 'name', 'type', 'start_time', 
                     'stop_time', 'host_address', 'mps', 'pps']
                     
             mitigations = []
