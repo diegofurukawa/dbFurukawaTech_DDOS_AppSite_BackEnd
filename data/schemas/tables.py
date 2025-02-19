@@ -1,8 +1,23 @@
 from typing import Optional
 
+COMPANIES_SCHEMA = """
+CREATE TABLE IF NOT EXISTS public.companys (
+    idCompany serial4 NOT NULL,
+    nameCompany VARCHAR(255) UNIQUE NOT NULL,
+    address VARCHAR(255) NULL,
+    emailContact VARCHAR(255) NULL,
+    phoneNumberContact VARCHAR(255) NULL,
+    active BOOLEAN DEFAULT true,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP,
+    CONSTRAINT company_pkey PRIMARY KEY (idCompany)
+)
+"""
+
 USERS_SCHEMA = """
 CREATE TABLE IF NOT EXISTS public.users (
-    idUser serial4 NOT NULL,
+    idUser serial4 NOT NULL,    
+    idCompany VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     nameUser VARCHAR(255) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
@@ -14,7 +29,8 @@ CREATE TABLE IF NOT EXISTS public.users (
     lastLogin TIMESTAMP,
     refresh_token VARCHAR(255),
     CONSTRAINT users_email_key UNIQUE (email),
-    CONSTRAINT users_pkey PRIMARY KEY (idUser)
+    CONSTRAINT users_pkey PRIMARY KEY (idUser),
+    FOREIGN KEY (idCompany) REFERENCES companys(idCompany)
 )
 """
 
@@ -30,20 +46,6 @@ CREATE TABLE IF NOT EXISTS public.access_requests (
     processed_at timestamptz NULL,
     processed_by int4 NULL,
     CONSTRAINT access_requests_pkey PRIMARY KEY (idAccessRequest)
-)
-"""
-
-COMPANIES_SCHEMA = """
-CREATE TABLE IF NOT EXISTS public.companys (
-    idCompany serial4 NOT NULL,
-    nameCompany VARCHAR(255) UNIQUE NOT NULL,
-    address VARCHAR(255) NULL,
-    emailContact VARCHAR(255) NULL,
-    phoneNumberContact VARCHAR(255) NULL,
-    active BOOLEAN DEFAULT true,
-    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updatedAt TIMESTAMP,
-    CONSTRAINT company_pkey PRIMARY KEY (idCompany)
 )
 """
 
